@@ -1,0 +1,16 @@
+#!include_default
+
+# Avoid Module::Build generated and utility files.
+\b\..*\.swp
+\bBuild$
+\bBuild.bat$
+\b_build
+\bBuild.COM$
+\bBUILD.COM$
+\bbuild.com$
+\bDebian_CPANTS.txt$
+\bMANIFEST.SKIP$
+
+# Avoid archives of this distribution
+\bCLI-Startup-[\d\.\_]+
+

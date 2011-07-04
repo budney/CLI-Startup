@@ -1,6 +1,5 @@
 Build.PL
 Changes
-ignore.txt
 lib/CLI/Startup.pm
 Makefile.PL
 MANIFEST
