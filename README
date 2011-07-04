@@ -1,16 +1,15 @@
 CLI-Startup
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+Every command-line script does (or should) accept command-line
+options, at the very least a --help option, and should allow
+default options to be specified in a "resource" file, named by
+default $HOME/.SCRIPTNAMErc.
 
-A README file is required for CPAN modules since CPAN extracts the README
-file from a module distribution so that people browsing the archive
-can use it to get an idea of the module's uses. It is usually a good idea
-to provide version information here so that people can decide whether
-fixes for the module are worth downloading.
-
+This package accepts a simple hash of command-line options and
+uses it to generate command-line processing, a --help message,
+and resource-file processing. These are all annoying chores that
+every script needs, and that are always essentially identical but
+for the specific options supported.
 
 INSTALLATION
 

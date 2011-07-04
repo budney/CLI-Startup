@@ -40,10 +40,12 @@ my $builder = $class->new(
         'Class::Std'     => '0.01',
         'Config::Simple' => '4.58',
         'Getopt::Long'   => '2.38',
+        'Clone'          => 0,
     },
 
     build_requires => {
         'Test::More'      => 0,
+        'Test::Trap'      => 0,
         'Test::Exception' => 0,
     },
 

@@ -3,12 +3,17 @@ package CLI::Startup;
 use warnings;
 use strict;
 
+use Symbol;
+use Class::Std;
 use Getopt::Long;
 use Config::Simple;
+use File::Basename;
+use Clone qw{ clone };
+use List::Util qw{ max };
 
 =head1 NAME
 
-CLI::Startup - The great new CLI::Startup!
+CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
@@ -18,37 +23,542 @@ Version 0.01
 
 our $VERSION = '0.01';
 
-
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+Every command-line script does (or should) accept command-line
+options, at the very least a C<--help> option, and should allow
+default options to be specified in a "resource" file, named by
+default C<$HOME/.SCRIPTNAMErc>.
 
-Perhaps a little code snippet.
+This package accepts a simple hash of command-line options and
+uses it to generate command-line processing, a C<--help> message,
+and resource-file processing. These are all annoying chores that
+every script needs, and that are always essentially identical but
+for the specific options supported.
 
     use CLI::Startup;
 
-    my $foo = CLI::Startup->new();
+    my $app = CLI::Startup->new({
+        'infile=s'   => 'An option for specifying an input file',
+        'outfile=s'  => 'An option for specifying an output file',
+        'password=s" => 'A password to use for something',
+        'email=s@'   => 'Some email addresses to notify of something',
+        'verbose'    => 'Verbose output flag',
+        'lines:i'    => 'Optional - the number of lines to process',
+        'retries:5'  => 'Optional - number of retries; defaults to 5',
+        ...
+    });
+
+    # Process the command line and resource file (if any)
+    $app->init;
+
+    # Handle program options, which might have come from the
+    # command line, or might have come from the resource file:
+    my %opts    = $app->get_options;
+    my $opts    = $app->get_options;            # Can return hash or hashref
+    my $verbose = $app->get_options('verbose'); # Can look up individual opts
+    my @email   = $app->get_options('email');   # Can return array or arrayref
     ...
+
+    # Print messages to the user, with helpful formatting
+    print $app->usage(); # Print the --help message
+    $app->die_usage();   # Print the --help message and exit
+    $app->warn();        # Format warnings nicely
+    $app->die();         # Die with a nicely-formatted message
 
 =head1 EXPORT
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+If you really don't like object-oriented coding, or your needs are
+super-simple, C<CLI::Startup> exports a single method: C<startup>.
+
+=head2 startup
+
+  my %opts = startup({
+    'opt1=s' => 'Option taking a string',
+    'opt2:i' => 'Optional option taking an integer',
+    ...
+  });
+
+Process command-line options specified in the argument hash.
+Automatically responds to the C<--help> option, or to invalid
+options, by printing a help message and exiting. Otherwise returns
+a hash (or hashref, depending on the calling context) of the options
+requested. Automatically checks for default options in a resource
+file named C<$HOME/.SCRIPTNAMErc>.
+
+If you want any fancy configuration, or you want to customize any
+behaviors, then you need to use the object-oriented interface.
+
+=cut
+
+sub startup
+{
+    my $optspec = shift;
+
+    my $app = CLI::Startup->new($optspec);
+    return $app->get_options;
+}
+
+=head1 ATTRIBUTES
+
+=head2 config
+
+  $config = $app->get_config;
+
+Returns the contents of the resource file as a hashref. This
+attribute is read-only; it is set when the config file is read,
+which happens when C<$app->init()> is called.
+
+It is a fatal error to call C<get_config()> before C<init()> is
+called.
+
+=cut
+
+my %config_of : ATTR();
+
+sub get_config
+{
+    my $self = shift;
+    $self->die("get_config() called before init()")
+        unless $self->get_initialized;
+    return $config_of{ident $self};
+}
+
+=head2 initialized
+
+  $app->init unless $app->get_initialized();
+
+Flag indicating whether the app is initialized. This is used
+internally; you probably shouldn't need it since you should
+only be calling C<$app->init()> once, near the start of your
+script.
+
+=cut
+
+my %initialized_of :ATTR( :get<initialized> );
+
+=head2 options
+
+  my %options = $app->get_options;
+
+The command options for the current invocation of the script. This
+includes the actual command-line options of the script, or the
+defaults found in the config file, if any, or the wired-in defaults
+from the script itself, in that order of precedence.
+
+Usually, your script only cares about this. It doesn't care about
+C<$app->get_config> or C<$app->get_optspec> or any other building
+blocks that were used to ultimately build C<$app->get_options>.
+
+It is a fatal error to call C<get_options()> before calling C<init()>.
+
+=cut 
+
+my %options_of :ATTR();
+
+sub get_options
+{
+    my $self = shift;
+    $self->die("get_options() called before init()")
+        unless $self->get_initialized;
+    return $options_of{ident $self};
+}
+
+=head2 optspec
+
+  $app->set_optspec( \%options );
+  my $optspec = $app->get_optspec();
+
+The hash of command-line options. The keys use C<Getopt::Long>
+syntax, and the values are descriptions for printing in the usage
+message.
+
+It is an error to call C<set_optspec()> after calling C<init()>.
+
+=cut
+
+my %optspec_of : ATTR( :get<optspec> :initarg<optspec> );
+
+sub set_optspec
+{
+    my $self = shift;
+    my $spec = shift;
+
+    $self->die("set_optspec() requires a hashref")
+        unless ref $spec eq 'HASH';
+    $self->die("set_optspec() called after init()")
+        if $self->get_initialized;
+    $optspec_of{ident $self} = clone($spec);
+}
+
+=head2 rcfile
+
+  $app->set_rcfile( $path_to_rcfile );
+  my $path = $app->get_rcfile;
+
+The default path to the rcfile. This overrides the build-in default of
+C<$HOME/.SCRIPTNAMErc>, but is in turn overridden by the C<--rcfile>
+option supported automatically by C<CLI::Startup>.
+
+It is an error to call C<set_rcfile()> after calling C<init()>.
+
+=cut
+
+my %rcfile_of : ATTR( :get<rcfile> :initarg<rcfile> );
+
+sub set_rcfile
+{
+    my ($self, $rcfile) = @_;
+
+    $self->die("set_optspec() called after init()")
+        if $self->get_initialized;
+    $rcfile_of{ident $self} = "$rcfile";
+}
+
+=head2 usage
+
+  $app->set_usage("[options] FILE1 [FILE2 ...]");
+  print "Usage: $0: " . $app->get_usage . "\n";
+
+A usage message for the script. Useful if the command options are
+followed by positional parameters; otherwise a default usage message
+is supplied automatically.
+
+It is an error to call C<set_usage()> after calling C<init()>.
+
+=cut
+
+my %usage_of : ATTR( :get<usage> :initarg<usage> );
+
+sub set_usage
+{
+    my ($self, $usage) = @_;
+
+    $self->die("set_usage() called after init()")
+        if $self->get_initialized;
+    $usage_of{ident $self} = "$usage";
+}
+
+=head2 write_rcfile
+
+  $app->set_write_rcfile( \&rcfile_writing_sub );
+
+A code reference for writing out the rc file, in case it has
+extra options needed by the app. Setting this to C<undef>
+disables the C<--write-rcfile> command-line option. This option
+is also disabled if I<reading> rc files is disabled by setting
+the C<rcfile> attribute to undef.
+
+It is an error to call C<set_write_rcfile()> after calling C<init()>.
+
+=cut
+
+my %write_rcfile_of : ATTR( :initarg<write_rcfile> );
+
+sub set_write_rcfile
+{
+    my $self   = shift;
+    my $writer = shift || 0;
+
+    $self->die("set_write_rcfile() called after init()")
+        if $self->get_initialized;
+    $self->die("set_write_rcfile() requires a coderef or false")
+        if $writer && ref($writer) ne 'CODE';
+    $write_rcfile_of{ident $self} = $writer;
+}
 
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 die
+
+  $app->die("die message");
+  # Prints the following, for script "$BINDIR/foo":
+  # foo: FATAL: die message
+
+Die with a nicely-formatted message, identifying the script that
+died.
 
 =cut
 
-sub function1 {
+sub die
+{
+    my $self = shift;
+    my $msg  = shift;
+    my $name = basename($0);
+
+    CORE::die "$name: FATAL: $msg\n";
 }
 
-=head2 function2
+=head2 die_usage
+
+  $app->die_usage if $something_wrong;
+
+Print a help message and exit. This is called internally if the user
+supplies a C<--help> option on the command-line.
 
 =cut
 
-sub function2 {
+sub die_usage
+{
+    my $self    = shift;
+    my $optspec = $self->_options_spec;
+
+    # We require that options are defined before
+    # calling die_usage().
+    $self->die("die_usage() called without defining options")
+        unless keys %{ $optspec_of{ident $self} };
+
+    # Keep only the options that are actually used, and
+    # sort them in dictionary order.
+    my %options =
+        map { m/([^=:]+)[=:]?/; {$1, $_} }
+        grep { defined $optspec->{$_} }
+        keys %$optspec;
+
+    # Note the length of the longest option
+    my $length  = max map { length($_) } keys %options;
+
+    # Now print the help message.
+    print  STDERR basename($0) . ": usage:\n";
+    print  STDERR basename($0) . " " . $self->get_usage . "\n";
+    printf STDERR "    %-${length}s - %s\n", $_, $optspec->{$options{$_}}
+        for sort keys %options;
+
+    exit 1;
+}
+
+# Returns an options spec hashref, with automatic options
+# added in.
+sub _options_spec
+{
+    my $self = shift;
+
+    my $optspec = {
+        'rcfile=s'     => 'Config file to load',
+        'write-rcfile' => 'Write options to rc file',
+        %{ $self->get_optspec },
+    };
+
+    # The --help option is NOT optional
+    $optspec->{help} ||= 'Print this helpful help message',
+
+    # The --write-rcfile option is meaningless if the --rcfile
+    # option has been disabled
+    delete $optspec->{'write-rcfile'} unless defined $optspec->{rcfile};
+
+    return $optspec;
+}
+
+=head2 init
+
+=cut
+
+sub init {
+    my $self = shift;
+
+    $self->die("init() method takes no arguments") if @_;
+    $self->die("init() called a second time")
+        if $self->get_initialized;
+
+    # Parse command-line options FIRST, because one of them might
+    # override the default choice of resource file.
+    my %options;
+    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
+
+    # Print a usage message if there's anything wrong. Note: we only
+    # look on the command line for the --help option, so sticking it
+    # in the rc file has no effect. That's on purpose.
+    $self->die_usage unless $opts_ok and not $options{help};
+
+    # Process the rcfile option immediately
+    $self->set_rcfile($options{rcfile}) if defined $options{rcfile};
+
+    # Then read the config file, if any.
+    my $rcfile = $self->get_rcfile || '';
+    $rcfile
+        = $rcfile && -r $rcfile
+        ? Config::Simple->new($rcfile)
+        : '';
+
+    # Extract the contents of the config
+    my $raw_config = $rcfile ? $rcfile->vars() : {};
+    my ($defaults, $config) = ( {}, {} );
+
+    # Now, in case the config file has sections, unflatten the hash.
+    for my $option ( keys %$raw_config )
+    {
+        if ( $option =~ /^(.*)\.(.*)$/ )
+        {
+            $config->{$1}     ||= {};
+            $config->{$1}{$2}   = $raw_config->{$option};
+        }
+        else
+        {
+            $defaults->{$option} = $raw_config->{$option};
+        }
+    }
+    $config->{defaults} ||= $defaults;
+
+    # Save the unflattened config for reference
+    $config_of{ident $self} = $config;
+
+    # Now, merge the defaults with the command-line options.
+    for my $option ( keys %{$config->{defaults}} )
+    {
+        next if exists $options{$option};
+        $options{$option} = $config->{defaults}{$option};
+    }
+
+    # Save the fully-processed options
+    $options_of{ident $self} = \%options;
+
+    # Mark the object as initialized
+    $initialized_of{ident $self} = 1;
+}
+
+=head2 new
+
+  # Normal: accept defaults and specify only options
+  my $app = CLI::Startup->new( \%options );
+
+  # Advanced: override some CLI::Startup defaults
+  my $app = CLI::Startup->new(
+    rcfile       => $rcfile_path, # Set to undef to disable rc files
+    write_rcfile => \&write_sub,  # Set to undef to disable writing
+    optspec => \%options,
+  );
+
+Create a new C<CLI::Startup> object to process the options
+defined in C<\%options>.
+
+=cut
+
+sub BUILD {
+    my ($self, $id, $argref) = @_;
+
+    # Shorthand: { options => \%options } can be
+    # abbreviated \%options.
+    if ( not defined $argref->{options} )
+    {
+        $argref = { options => $argref };
+    }
+    $self->set_optspec($argref->{options});
+
+    # Caller can override the default rcfile. Setting this to
+    # undef disables rcfile reading for the script.
+    $self->set_rcfile(
+          exists $argref->{rcfile}
+        ? $argref->{rcfile}
+        : "$ENV{HOME}/." . basename($0) . "rc"
+    );
+
+    # Caller can forbid writing of rcfiles by setting
+    # the write_rcfile option to undef, or can supply
+    # a coderef to do the writing.
+    if ( defined $argref->{write_rcfile} )
+    {
+        $self->set_write_rcfile( $argref->{write_rcfile} );
+    }
+
+    # Set an optional usage message for the script.
+    $self->set_usage(
+          exists $argref->{usage}
+        ? $argref->{usage}
+        : "[options]"
+    );
+}
+
+=head2 warn
+
+  $app->warn("warning message");
+  # Prints the following, for script "$BINDIR/foo":
+  # foo: WARNING: warning message
+
+Print a nicely-formatted warning message, identifying the script
+by name.
+
+=cut
+
+sub warn
+{
+    my $self = shift;
+    my $msg  = shift;
+    my $name = basename($0);
+
+    warn "$name: WARNING: $msg\n";
+}
+
+=head2 write_rcfile
+
+  $app->write_rcfile();      # Overwrite the rc file for this script
+  $app->write_rcfile($path); # Write an rc file to a new location
+
+Write the current settings for this script to an rcfile--by default,
+the rcfile read for this script, but optionally a different file
+specified by the caller. The automatic C<--write-rcfile> option
+always writes to the script specified in the C<--rcfile> option.
+
+=cut
+
+sub write_rcfile
+{
+    my $self = shift;
+
+    # Check whether a writer has been set
+    my $writer
+        = defined $write_rcfile_of{ident $self}
+        ? $write_rcfile_of{ident $self}
+        : exists $write_rcfile_of{ident $self}
+        ? 0
+        : 1;
+
+    # If there's a writer, call it. If writing is disabled,
+    # it's a fatal error.
+    if ( ref $writer eq 'CODE' )
+    {
+        $writer->($self);
+        return;
+    }
+    elsif ( not $writer )
+    {
+        $self->die("write_rcfile() disabled, but called anyway");
+    }
+
+    # OK, we can write the rcfile ourselves.
+    my $file = shift || $self->get_rcfile;
+    my $conf = Config::Simple->new( syntax => 'ini' );
+
+    my $settings = $self->get_config;
+    my $options  = $self->get_options;
+
+    # Copy the current options back into the "defaults"
+    for my $option ( keys %$options )
+    {
+        next if $option eq 'rcfile';
+        next if $option eq 'write-rcfile';
+        $settings->{defaults}{$option} = $options->{$option};
+    }
+
+    # Flatten the settings back into the $conf object
+    for my $key ( keys %$settings )
+    {
+        if ( ref $settings->{$key} eq 'HASH' )
+        {
+            for my $setting ( keys %{ $settings->{$key} } )
+            {
+                $conf->param(
+                    "$key.$setting" => $settings->{$key}{$setting}
+                );
+            }
+        }
+        else
+        {
+            $conf->param( $key => $settings->{$key} );
+        }
+    }
+
+    # Write back the results
+    $conf->write($file);
 }
 
 =head1 AUTHOR
@@ -62,14 +572,11 @@ the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CLI-Startu
 automatically be notified of progress on your bug as I make changes.
 
 
-
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc CLI::Startup
-
 
 You can also look for information at:
 
