@@ -3,6 +3,9 @@ package CLI::Startup;
 use warnings;
 use strict;
 
+use Getopt::Long;
+use Config::Simple;
+
 =head1 NAME
 
 CLI::Startup - The great new CLI::Startup!
