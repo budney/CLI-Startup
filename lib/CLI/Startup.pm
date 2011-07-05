@@ -343,13 +343,25 @@ sub die_usage
     exit 1;
 }
 
-# Returns an options spec hashref, with automatic options
-# added in.
-sub _validate_optspec
+# Returns the "default" optspec, consisting of options
+# that CLI::Startup normally creates automatically.
+sub _default_optspec
 {
-    my ( $self, $optspec ) = @_;
+    return {
+        'help'          => 'Print this helpful help message',
+        'rcfile=s'      => 'Config file to load',
+        'write-rcfile'  => 'Write current options to rcfile',
+        'version'       => 'Print version information and exit',
+        'manpage'       => 'Print the manpage for this script',
+    };
+}
 
-    my %option_names;
+# Returns a hash of option names and specs from the supplied
+# hash. Also converts undef to 0 in $optspec.
+sub _option_specs
+{
+    my ($self, $optspec ) = @_;
+    my %option_specs;
 
     # Make sure that there are no duplicated option names,
     # and that options with undefined help text are defined
@@ -359,53 +371,75 @@ sub _validate_optspec
         $option  =~ /^([^:=]+).*$/;
         my $name =  $1;
 
-        $self->die("--$name option defined twice") if exists $option_names{$name};
+        $self->die("--$name option defined twice") if exists $option_specs{$name};
 
-        $option_names{$name}   = $option;
+        $option_specs{$name}   = $option;
         $optspec->{$option}  ||= 0;
     }
 
-    # Make sure the automatically-supplied options are zeroed out
-    # if they're not already defined.
-    $option_names{$_} ||= 0 for qw/ rcfile write-rcfile help /;
-    $optspec->{$_}    ||= 0 for qw/ rcfile=s write-rcfile help /;
+    return \%option_specs;
+}
 
-    # Check for at least one non-default option
-    my %non_default = %option_names;
-    delete $non_default{$_} for qw/ rcfile write-rcfile help /;
-    $self->die("No command-line options defined") unless keys %non_default;
+# Returns an options spec hashref, with automatic options
+# added in.
+sub _validate_optspec
+{
+    my ( $self, $optspec ) = @_;
 
-    # Validate that overrides are of the correct form, but allow
-    # disabling overrides to take any form.
-    $self->die("--help option takes no arguments")
-        if $option_names{help}
-        && $option_names{help} ne 'help';
-    $self->die("--rcfile option takes one argument")
-        if $option_names{rcfile}
-        && ($optspec->{$option_names{rcfile}} || 0)
-        && $option_names{rcfile} ne 'rcfile=s';
-    $self->die("--write-rcfile takes no arguments")
-        if $option_names{'write-rcfile'}
-        && $option_names{'write-rcfile'} ne 'write-rcfile';
+    # Build a hash of option specs in $optspec, indexed by option name.
+    # Die with an error if any option names collide.
+    my $option_specs  = $self->_option_specs($optspec);
+    my $defaults      = $self->_default_optspec;
+    my $default_specs = $self->_option_specs($defaults);
 
-    # Add rcfile options unless they're already there. We just validated
-    # that if they are there, then they have the correct signature.
-    $optspec->{'rcfile=s'}     = 'Config file to load'
-        unless $option_names{rcfile};
-    $optspec->{'write-rcfile'} = 'Write options to rcfile'
-        if  $optspec->{'rcfile=s'} && !$option_names{'write-rcfile'};
+    # Verify that any default options specified in $optspec are specified
+    # with the right signature OR are bare words. This makes for the
+    # syntactic sugar of saying { rcfile => 0 } instead of { 'rcfile=s' => 0 }.
+    for my $name ( keys %$default_specs )
+    {
+        # If the option isn't mentioned, then set it to the default.
+        if ( not exists $option_specs->{$name} )
+        {
+            my $spec = $default_specs->{$name};
+            $optspec->{$spec} = $defaults->{$spec};
+            next;
+        }
+        my $spec = delete $option_specs->{$name};
+
+        # Noting more to do if the specs match
+        next if $spec eq $default_specs->{$name};
+
+        # Otherwise it's a fatal error for the spec to be more than a bare word
+        $self->die("--$name option defined incorrectly") unless $spec eq $name;
+
+        # Fix the option spec to match the default
+        my $help_text = delete $optspec->{$spec};
+        $optspec->{$default_specs->{$name}} = $help_text;
+    }
+
+    # Make sure there's at least one option left
+    $self->die("No command-line options defined") unless keys %$option_specs;
 
     # The --help option is NOT optional
-    $optspec->{help} ||= 'Print this helpful help message'
-        unless $option_names{help} && $optspec->{help};
+    $optspec->{help} = $defaults->{help} unless $optspec->{help};
 
     # Remove disabled options
-    map { delete $optspec->{$_} unless $optspec->{$_} || 0 } keys %$optspec;
+    map { delete $optspec->{$_} unless $optspec->{$_} } keys %$optspec;
 
     return $optspec;
 }
 
 =head2 init
+
+  $app  = CLI::Startup->new( \%optspec );
+  $app->init;
+  $opts = $app->get_options;
+
+Initialize command options by parsing the command line and merging in
+defaults from the rcfile, if any. This is where most of the work gets
+done. If you don't have any special needs, and want to use the Perl
+fourish interface, the C<startup()> function basically does nothing
+more than the example code above.
 
 =cut
 
@@ -421,20 +455,52 @@ sub init {
     $self->die("init() called without defining any command-line options")
         unless keys %{ $self->get_optspec || {} };
 
-    # Parse command-line options FIRST, because one of them might
-    # override the default choice of resource file.
-    my %options;
-    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
+    # Parse command-line options, then read the config file if any.
+    my $options = $self->_process_command_line;
+    my $config  = $self->_read_config_file;
 
-    # Print a usage message if there's anything wrong. Note: we only
-    # look on the command line for the --help option, so sticking it
-    # in the rc file has no effect. That's on purpose.
+    # Now, merge the defaults with the command-line options.
+    for my $option ( keys %{$config->{default}} )
+    {
+        next if exists $options->{$option};
+        $options->{$option} = $config->{default}{$option};
+    }
+
+    # Save the fully-processed options
+    $options_of{ident $self} = $options;
+
+    # Mark the object as initialized
+    $initialized_of{ident $self} = 1;
+
+    #
+    # Automatically processed options:
+    #
+
+    # Write back the config if requested
+    $self->write_rcfile if $options->{'write-rcfile'};
+}
+
+sub _process_command_line
+{
+    my $self = shift;
+    my %options;
+
+    # Parse the command line and die if anything is wrong.
+    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
     $self->die_usage if $options{help} || !$opts_ok ;
 
-    # Process the rcfile option immediately.
+    # Process the rcfile option immediately, to override any settings
+    # hard-wired in the app, as well as this module's defaults.
     $self->set_rcfile($options{rcfile}) if defined $options{rcfile};
 
-    # Then read the config file, if any.
+    # That's it!
+    return \%options;
+}
+
+sub _read_config_file
+{
+    my $self = shift;
+
     my $rcfile = $self->get_rcfile || '';
     $rcfile
         = $rcfile && -r $rcfile
@@ -463,21 +529,7 @@ sub init {
     # Save the unflattened config for reference
     $config_of{ident $self} = $config;
 
-    # Now, merge the defaults with the command-line options.
-    for my $option ( keys %{$config->{default}} )
-    {
-        next if exists $options{$option};
-        $options{$option} = $config->{default}{$option};
-    }
-
-    # Save the fully-processed options
-    $options_of{ident $self} = \%options;
-
-    # Mark the object as initialized
-    $initialized_of{ident $self} = 1;
-
-    # Write back the config if requested
-    $self->write_rcfile if $options{'write-rcfile'};
+    return $config;
 }
 
 =head2 new

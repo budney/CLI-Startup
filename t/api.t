@@ -24,18 +24,25 @@ throws_ok { $app->die_usage } qr/FATAL/, "die_usage() with no options";
 # These calls should fail due to incorrect arguments
 throws_ok { $app->init(1) } qr/no arguments/,
     "init() dies when called with args";
-throws_ok { $app->set_optspec } qr/requires a hashref/,
-    "set_optspec() requires a hashref";
 throws_ok { $app->set_write_rcfile(1) } qr/requires a coderef/,
     "set_write_rcfile() requires a coderef";
+throws_ok { $app->set_optspec } qr/requires a hashref/,
+    "set_optspec() requires a hashref";
+throws_ok { $app->set_optspec({}) } qr/No.*options defined/,
+    "set_optspec() requires at least one non-default option";
+throws_ok { $app->set_optspec({ help => 1 }) } qr/No.*options defined/,
+    "set_optspec() requires at least one non-default option";
 
 # These calls should all live
 lives_ok { $app->set_usage('')             } "set_usage() lives";
 lives_ok { $app->set_rcfile('')            } "set_rcfile() lives";
-lives_ok { $app->set_optspec({foo=>'bar'}) } "set_optspec() lives";
 lives_ok { $app->set_write_rcfile('')      } "set_write_rcfile() lives";
 lives_ok { $app->set_write_rcfile(undef)   } "set_write_rcfile(undef) lives";
 lives_ok { $app->set_write_rcfile(sub{})   } "set_write_rcfile(sub{}) lives";
+
+# This call should live, but the "help" option should be overridden
+lives_ok { $app->set_optspec({foo=>'bar', help=>0}) } "set_optspec() lives";
+ok $app->get_optspec->{help}, "Help was overridden";
 
 # Now call init()
 lives_ok { $app->init } "init() lives the first time";

@@ -78,12 +78,12 @@ ok defined(&startup), "startup() was exported";
 
 # Invalid prototypes for default options
 {
-    for my $spec (qw/ help=s write-rcfile=s rcfile /)
+    for my $spec (qw/ help=s write-rcfile=s rcfile=i /)
     {
         trap { startup({ $spec => 'foo', bar => 'baz' }) };
 
         ok $trap->leaveby eq 'die', "Error exit with invalid spec: $spec";
-        like $trap->die, qr/takes.*argument/i, "Error message printed";
+        like $trap->die, qr/defined incorrectly/i, "Error message printed";
     }
 }
 
