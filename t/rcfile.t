@@ -1,6 +1,7 @@
 # Test reading and writing of RC files
 
 use Test::More;
+use Test::Exception;
 
 eval "use CLI::Startup";
 plan skip_all => "Can't load CLI::Startup" if $@;
@@ -47,9 +48,50 @@ $app2->set_rcfile("$rcfile.check");
 $app2->init;
 is_deeply $app->get_config, $app2->get_config, "Config settings match";
 
+# Reading a nonexistent file silently succeeds
+my $app3 = CLI::Startup->new({ rcfile => "$dir/tmp/no_such_file" });
+lives_ok { $app3->init } "Init with nonexistent file";
+is_deeply $app3->get_config, { defaults => {} }, "Config is empty";
+
+# Repeat the above, using arguments
+{
+    local @ARGV = ( "--rcfile=$dir/tmp/no_such_file" );
+    my $app = CLI::Startup->new;
+    lives_ok { $app->init } "Init with command-line rcfile";
+    ok $app->get_rcfile eq "$dir/tmp/no_such_file", "rcfile set correctly";
+    is_deeply $app->get_config, { defaults => {} }, "Config is empty";
+}
+
+# Now write back the config file and confirm the contents
+{
+    my $file = "$dir/tmp/auto";
+
+    local @ARGV = (
+        "--rcfile=$file", qw/ --write-rcfile --foo --bar=baz /
+    );
+    my $app = CLI::Startup->new({
+        options => {
+            foo     => 'foo option',
+            'bar=s' => 'bar option',
+        },
+    });
+    lives_ok { $app->init } "Init with nonexistent command-line rcfile";
+    ok $app->get_rcfile eq "$file", "rcfile set correctly";
+    is_deeply $app->get_config, {
+        defaults => { foo=>1, bar=>'baz' }
+    }, "Config is empty";
+    ok -r "$file", "File was created";
+
+    my $app2 = CLI::Startup->new({
+        rcfile  => "$file",
+        options => {},
+    });
+    $app2->init;
+    is_deeply $app2->get_config, $app->get_config, "Writeback is idempotent";
+}
+
 # Clean up
-unlink $rcfile;
-unlink "$rcfile.check";
+unlink $_ for glob("$dir/tmp/*");
 rmdir "$dir/tmp";
 
 done_testing();

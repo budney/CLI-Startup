@@ -21,6 +21,8 @@ throws_ok { $app->get_options } qr/before init/, "get_options() before init()";
 throws_ok { $app->die_usage } qr/FATAL/, "die_usage() with no options";
 
 # These calls should fail due to incorrect arguments
+throws_ok { $app->init(1) } qr/no arguments/,
+    "init() dies when called with args";
 throws_ok { $app->set_optspec } qr/requires a hashref/,
     "set_optspec() requires a hashref";
 throws_ok { $app->set_write_rcfile(1) } qr/requires a coderef/,
@@ -31,6 +33,8 @@ lives_ok { $app->set_usage('')             } "set_usage() lives";
 lives_ok { $app->set_rcfile('')            } "set_rcfile() lives";
 lives_ok { $app->set_optspec({foo=>'bar'}) } "set_optspec() lives";
 lives_ok { $app->set_write_rcfile('')      } "set_write_rcfile() lives";
+lives_ok { $app->set_write_rcfile(undef)   } "set_write_rcfile(undef) lives";
+lives_ok { $app->set_write_rcfile(sub{})   } "set_write_rcfile(sub{}) lives";
 
 # Now call init()
 lives_ok { $app->init } "init() lives the first time";

@@ -344,7 +344,7 @@ sub _options_spec
 
     # The --write-rcfile option is meaningless if the --rcfile
     # option has been disabled
-    delete $optspec->{'write-rcfile'} unless defined $optspec->{rcfile};
+    delete $optspec->{'write-rcfile'} unless defined $optspec->{'rcfile=s'};
 
     return $optspec;
 }
@@ -363,7 +363,7 @@ sub init {
     # Parse command-line options FIRST, because one of them might
     # override the default choice of resource file.
     my %options;
-    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
+    my $opts_ok = GetOptions( \%options, keys %{ $self->_options_spec } );
 
     # Print a usage message if there's anything wrong. Note: we only
     # look on the command line for the --help option, so sticking it
@@ -414,6 +414,9 @@ sub init {
 
     # Mark the object as initialized
     $initialized_of{ident $self} = 1;
+
+    # Write back the config if requested
+    $self->write_rcfile if $options{'write-rcfile'};
 }
 
 =head2 new
