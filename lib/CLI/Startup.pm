@@ -11,6 +11,10 @@ use File::Basename;
 use Clone qw{ clone };
 use List::Util qw{ max };
 
+use Exporter;
+our @ISA       = qw/Exporter/;
+our @EXPORT_OK = qw/startup/;
+
 =head1 NAME
 
 CLI::Startup - Simple initialization for command-line scripts
@@ -96,6 +100,8 @@ sub startup
     my $optspec = shift;
 
     my $app = CLI::Startup->new($optspec);
+    $app->init;
+
     return $app->get_options;
 }
 
@@ -188,7 +194,8 @@ sub set_optspec
         unless ref $spec eq 'HASH';
     $self->die("set_optspec() called after init()")
         if $self->get_initialized;
-    $optspec_of{ident $self} = clone($spec);
+
+    $optspec_of{ident $self} = clone($self->_validate_optspec($spec));
 }
 
 =head2 rcfile
@@ -253,7 +260,7 @@ It is an error to call C<set_write_rcfile()> after calling C<init()>.
 
 =cut
 
-my %write_rcfile_of : ATTR( :initarg<write_rcfile> );
+my %write_rcfile_of : ATTR( :get<write_rcfile> :initarg<write_rcfile> );
 
 sub set_write_rcfile
 {
@@ -264,6 +271,19 @@ sub set_write_rcfile
         if $self->get_initialized;
     $self->die("set_write_rcfile() requires a coderef or false")
         if $writer && ref($writer) ne 'CODE';
+
+    # Toggle the --write-rcfile option spec if writing is toggled
+    my $optspec = $optspec_of{ident $self}; # Need a reference, not a copy
+    if ($writer)
+    {
+        $optspec->{'write-rcfile'} ||= 'Write options to rcfile';
+    }
+    else
+    {
+        delete $optspec->{'write-rcfile'};
+    }
+
+    # Save the writer
     $write_rcfile_of{ident $self} = $writer;
 }
 
@@ -301,19 +321,15 @@ supplies a C<--help> option on the command-line.
 sub die_usage
 {
     my $self    = shift;
-    my $optspec = $self->_options_spec;
-
-    # We require that options are defined before
-    # calling die_usage().
-    $self->die("die_usage() called without defining options")
-        unless keys %{ $optspec_of{ident $self} };
+    my $optspec = $self->get_optspec;
 
     # Keep only the options that are actually used, and
     # sort them in dictionary order.
     my %options =
         map { m/([^=:]+)[=:]?/; {$1, $_} }
-        grep { defined $optspec->{$_} }
         keys %$optspec;
+    $self->die("die_usage() called without defining any options")
+        unless keys %$optspec;
 
     # Note the length of the longest option
     my $length  = max map { length($_) } keys %options;
@@ -329,22 +345,62 @@ sub die_usage
 
 # Returns an options spec hashref, with automatic options
 # added in.
-sub _options_spec
+sub _validate_optspec
 {
-    my $self = shift;
+    my ( $self, $optspec ) = @_;
 
-    my $optspec = {
-        'rcfile=s'     => 'Config file to load',
-        'write-rcfile' => 'Write options to rc file',
-        %{ $self->get_optspec },
-    };
+    my %option_names;
+
+    # Make sure that there are no duplicated option names,
+    # and that options with undefined help text are defined
+    # to false.
+    for my $option (keys %$optspec)
+    {
+        $option  =~ /^([^:=]+).*$/;
+        my $name =  $1;
+
+        $self->die("--$name option defined twice") if exists $option_names{$name};
+
+        $option_names{$name}   = $option;
+        $optspec->{$option}  ||= 0;
+    }
+
+    # Make sure the automatically-supplied options are zeroed out
+    # if they're not already defined.
+    $option_names{$_} ||= 0 for qw/ rcfile write-rcfile help /;
+    $optspec->{$_}    ||= 0 for qw/ rcfile=s write-rcfile help /;
+
+    # Check for at least one non-default option
+    my %non_default = %option_names;
+    delete $non_default{$_} for qw/ rcfile write-rcfile help /;
+    $self->die("No command-line options defined") unless keys %non_default;
+
+    # Validate that overrides are of the correct form, but allow
+    # disabling overrides to take any form.
+    $self->die("--help option takes no arguments")
+        if $option_names{help}
+        && $option_names{help} ne 'help';
+    $self->die("--rcfile option takes one argument")
+        if $option_names{rcfile}
+        && ($optspec->{$option_names{rcfile}} || 0)
+        && $option_names{rcfile} ne 'rcfile=s';
+    $self->die("--write-rcfile takes no arguments")
+        if $option_names{'write-rcfile'}
+        && $option_names{'write-rcfile'} ne 'write-rcfile';
+
+    # Add rcfile options unless they're already there. We just validated
+    # that if they are there, then they have the correct signature.
+    $optspec->{'rcfile=s'}     = 'Config file to load'
+        unless $option_names{rcfile};
+    $optspec->{'write-rcfile'} = 'Write options to rcfile'
+        if  $optspec->{'rcfile=s'} && !$option_names{'write-rcfile'};
 
     # The --help option is NOT optional
-    $optspec->{help} ||= 'Print this helpful help message',
+    $optspec->{help} ||= 'Print this helpful help message'
+        unless $option_names{help} && $optspec->{help};
 
-    # The --write-rcfile option is meaningless if the --rcfile
-    # option has been disabled
-    delete $optspec->{'write-rcfile'} unless defined $optspec->{'rcfile=s'};
+    # Remove disabled options
+    map { delete $optspec->{$_} unless $optspec->{$_} || 0 } keys %$optspec;
 
     return $optspec;
 }
@@ -360,17 +416,22 @@ sub init {
     $self->die("init() called a second time")
         if $self->get_initialized;
 
+    # It's a fatal error to call init() without defining any
+    # command-line options
+    $self->die("init() called without defining any command-line options")
+        unless keys %{ $self->get_optspec || {} };
+
     # Parse command-line options FIRST, because one of them might
     # override the default choice of resource file.
     my %options;
-    my $opts_ok = GetOptions( \%options, keys %{ $self->_options_spec } );
+    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
 
     # Print a usage message if there's anything wrong. Note: we only
     # look on the command line for the --help option, so sticking it
     # in the rc file has no effect. That's on purpose.
-    $self->die_usage unless $opts_ok and not $options{help};
+    $self->die_usage if $options{help} || !$opts_ok ;
 
-    # Process the rcfile option immediately
+    # Process the rcfile option immediately.
     $self->set_rcfile($options{rcfile}) if defined $options{rcfile};
 
     # Then read the config file, if any.
@@ -397,16 +458,16 @@ sub init {
             $defaults->{$option} = $raw_config->{$option};
         }
     }
-    $config->{defaults} ||= $defaults;
+    $config->{default} ||= $defaults;
 
     # Save the unflattened config for reference
     $config_of{ident $self} = $config;
 
     # Now, merge the defaults with the command-line options.
-    for my $option ( keys %{$config->{defaults}} )
+    for my $option ( keys %{$config->{default}} )
     {
         next if exists $options{$option};
-        $options{$option} = $config->{defaults}{$option};
+        $options{$option} = $config->{default}{$option};
     }
 
     # Save the fully-processed options
@@ -426,8 +487,8 @@ sub init {
 
   # Advanced: override some CLI::Startup defaults
   my $app = CLI::Startup->new(
-    rcfile       => $rcfile_path, # Set to undef to disable rc files
-    write_rcfile => \&write_sub,  # Set to undef to disable writing
+    rcfile       => $rcfile_path, # Set to false to disable rc files
+    write_rcfile => \&write_sub,  # Set to false to disable writing
     optspec => \%options,
   );
 
@@ -445,7 +506,7 @@ sub BUILD {
     {
         $argref = { options => $argref };
     }
-    $self->set_optspec($argref->{options});
+    $self->set_optspec($argref->{options}) if keys %{$argref->{options}};
 
     # Caller can override the default rcfile. Setting this to
     # undef disables rcfile reading for the script.
@@ -458,7 +519,7 @@ sub BUILD {
     # Caller can forbid writing of rcfiles by setting
     # the write_rcfile option to undef, or can supply
     # a coderef to do the writing.
-    if ( defined $argref->{write_rcfile} )
+    if ( exists $argref->{write_rcfile} )
     {
         $self->set_write_rcfile( $argref->{write_rcfile} );
     }
@@ -501,62 +562,63 @@ the rcfile read for this script, but optionally a different file
 specified by the caller. The automatic C<--write-rcfile> option
 always writes to the script specified in the C<--rcfile> option.
 
+It's a fatal error to call C<write_rcfile()> before calling C<init()>.
+
 =cut
 
 sub write_rcfile
 {
     my $self = shift;
 
+    # It's a fatal error to call write_rcfile() before init()
+    $self->die("write_rcfile() called before init()")
+        unless $self->get_initialized;
+
     # Check whether a writer has been set
     my $writer
-        = defined $write_rcfile_of{ident $self}
+        = exists $write_rcfile_of{ident $self}
         ? $write_rcfile_of{ident $self}
-        : exists $write_rcfile_of{ident $self}
-        ? 0
         : 1;
 
-    # If there's a writer, call it. If writing is disabled,
-    # it's a fatal error.
+    # If there's a writer, call it.
     if ( ref $writer eq 'CODE' )
     {
         $writer->($self);
         return;
     }
-    elsif ( not $writer )
+
+    # If writing is disabled, abort.
+    if ( not $writer )
     {
         $self->die("write_rcfile() disabled, but called anyway");
     }
 
-    # OK, we can write the rcfile ourselves.
+    # If there's no file to write, abort.
     my $file = shift || $self->get_rcfile;
+    $self->die("Write rcfile: no file specified") unless $file;
+
+    # OK, continue with the built-in writer.
     my $conf = Config::Simple->new( syntax => 'ini' );
 
     my $settings = $self->get_config;
     my $options  = $self->get_options;
 
-    # Copy the current options back into the "defaults"
+    # Copy the current options back into the "default"
     for my $option ( keys %$options )
     {
         next if $option eq 'rcfile';
         next if $option eq 'write-rcfile';
-        $settings->{defaults}{$option} = $options->{$option};
+        $settings->{default}{$option} = $options->{$option};
     }
 
     # Flatten the settings back into the $conf object
     for my $key ( keys %$settings )
     {
-        if ( ref $settings->{$key} eq 'HASH' )
+        for my $setting ( keys %{ $settings->{$key} } )
         {
-            for my $setting ( keys %{ $settings->{$key} } )
-            {
-                $conf->param(
-                    "$key.$setting" => $settings->{$key}{$setting}
-                );
-            }
-        }
-        else
-        {
-            $conf->param( $key => $settings->{$key} );
+            $conf->param(
+                "$key.$setting" => $settings->{$key}{$setting}
+            );
         }
     }
 

@@ -1,3 +1,4 @@
+""
 Build.PL
 Changes
 lib/CLI/Startup.pm
@@ -8,7 +9,9 @@ META.yml
 README
 t/00-load.t
 t/api.t
+t/perl-fourish.t
 t/rcfile.t
+test.cfg
 xt/boilerplate.t
 xt/cover.t
 xt/distribution.t

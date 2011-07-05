@@ -14,8 +14,9 @@ ok !$app->can('set_options'),    "<options> attribute not settable";
 ok !$app->can('set_initalized'), "<initialized> attribute not settable";
 
 # Some calls aren't allowed /before/ init
-throws_ok { $app->get_config  } qr/before init/, "get_config() before init()";
-throws_ok { $app->get_options } qr/before init/, "get_options() before init()";
+throws_ok { $app->get_config   } qr/before init/, "get_config() before init()";
+throws_ok { $app->get_options  } qr/before init/, "get_options() before init()";
+throws_ok { $app->write_rcfile } qr/before init/, "write_rcfile() before init()";
 
 # This call should fail because options weren't defined yet.
 throws_ok { $app->die_usage } qr/FATAL/, "die_usage() with no options";
