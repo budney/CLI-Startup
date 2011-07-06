@@ -105,9 +105,9 @@ sub startup
     return $app->get_options;
 }
 
-=head1 ATTRIBUTES
+=head1 ACCESSORS
 
-=head2 config
+=head2 get_config
 
   $config = $app->get_config;
 
@@ -130,31 +130,31 @@ sub get_config
     return $config_of{ident $self};
 }
 
-=head2 initialized
+=head2 get_initialized
 
   $app->init unless $app->get_initialized();
 
-Flag indicating whether the app is initialized. This is used
-internally; you probably shouldn't need it since you should
-only be calling C<$app->init()> once, near the start of your
-script.
+Read-only flag indicating whether the app is initialized. This is
+used internally; you probably shouldn't need it since you should
+only be calling C<$app->init()> once, near the start of your script.
 
 =cut
 
 my %initialized_of :ATTR( :get<initialized> );
 
-=head2 options
+=head2 get_options
 
   my %options = $app->get_options;
 
-The command options for the current invocation of the script. This
-includes the actual command-line options of the script, or the
-defaults found in the config file, if any, or the wired-in defaults
-from the script itself, in that order of precedence.
+Read-only: the command options for the current invocation of the
+script. This includes the actual command-line options of the script,
+or the defaults found in the config file, if any, or the wired-in
+defaults from the script itself, in that order of precedence.
 
-Usually, your script only cares about this. It doesn't care about
-C<$app->get_config> or C<$app->get_optspec> or any other building
-blocks that were used to ultimately build C<$app->get_options>.
+Usually, this information is all your script really cares about
+this. It doesn't care about C<$app->get_config> or C<$app->get_optspec>
+or any other building blocks that were used to ultimately build
+C<$app->get_options>.
 
 It is a fatal error to call C<get_options()> before calling C<init()>.
 
@@ -170,12 +170,23 @@ sub get_options
     return $options_of{ident $self};
 }
 
-=head2 optspec
+=head2 get_optspec
 
-  $app->set_optspec( \%options );
   my $optspec = $app->get_optspec();
 
-The hash of command-line options. The keys use C<Getopt::Long>
+Returns the hash of command-line options. See C<set_optspec>
+for an example, and see C<Getopt::Long> for the full syntax.
+
+=head2 set_optspec
+
+  $app->set_optspec({
+    'file=s'  => 'File to read',    # Option with string argument
+    'verbose' => 'Verbose output',  # Boolean option
+    'tries=i' => 'Number of tries', # Option with integer argument
+    ...
+  });
+
+Set the hash of command-line options. The keys use C<Getopt::Long>
 syntax, and the values are descriptions for printing in the usage
 message.
 
@@ -198,14 +209,19 @@ sub set_optspec
     $optspec_of{ident $self} = clone($self->_validate_optspec($spec));
 }
 
-=head2 rcfile
+=head2 get_rcfile
 
-  $app->set_rcfile( $path_to_rcfile );
   my $path = $app->get_rcfile;
 
-The default path to the rcfile. This overrides the build-in default of
-C<$HOME/.SCRIPTNAMErc>, but is in turn overridden by the C<--rcfile>
-option supported automatically by C<CLI::Startup>.
+Get the full path of the rcfile to read or write.
+
+=head2 set_rcfile
+
+  $app->set_rcfile( $path_to_rcfile );
+
+Set the path to the rcfile to read or write. This overrides the
+build-in default of C<$HOME/.SCRIPTNAMErc>, but is in turn overridden
+by the C<--rcfile> option supported automatically by C<CLI::Startup>.
 
 It is an error to call C<set_rcfile()> after calling C<init()>.
 
@@ -222,12 +238,18 @@ sub set_rcfile
     $rcfile_of{ident $self} = "$rcfile";
 }
 
-=head2 usage
+=head2 get_usage
 
-  $app->set_usage("[options] FILE1 [FILE2 ...]");
   print "Usage: $0: " . $app->get_usage . "\n";
 
-A usage message for the script. Useful if the command options are
+Returns the usage string printed as part of the C<--help>
+output. Unlikely to be useful outside the module.
+
+=head2 set_usage
+
+  $app->set_usage("[options] FILE1 [FILE2 ...]");
+
+Set a usage message for the script. Useful if the command options are
 followed by positional parameters; otherwise a default usage message
 is supplied automatically.
 
@@ -246,7 +268,7 @@ sub set_usage
     $usage_of{ident $self} = "$usage";
 }
 
-=head2 write_rcfile
+=head2 set_write_rcfile
 
   $app->set_write_rcfile( \&rcfile_writing_sub );
 
@@ -453,7 +475,7 @@ sub init {
     # It's a fatal error to call init() without defining any
     # command-line options
     $self->die("init() called without defining any command-line options")
-        unless keys %{ $self->get_optspec || {} };
+        unless $self->get_optspec || 0;
 
     # Parse command-line options, then read the config file if any.
     my $options = $self->_process_command_line;
@@ -524,7 +546,7 @@ sub _read_config_file
             $defaults->{$option} = $raw_config->{$option};
         }
     }
-    $config->{default} ||= $defaults;
+    $config->{default} = $defaults unless $config->{default};
 
     # Save the unflattened config for reference
     $config_of{ident $self} = $config;
@@ -547,6 +569,10 @@ sub _read_config_file
 Create a new C<CLI::Startup> object to process the options
 defined in C<\%options>.
 
+=head2 BUILD
+
+An internal method called by C<new()>.
+
 =cut
 
 sub BUILD {
@@ -554,11 +580,11 @@ sub BUILD {
 
     # Shorthand: { options => \%options } can be
     # abbreviated \%options.
-    if ( not defined $argref->{options} )
+    if ( not exists $argref->{options} )
     {
         $argref = { options => $argref };
     }
-    $self->set_optspec($argref->{options}) if keys %{$argref->{options}};
+    $self->set_optspec($argref->{options}) if keys %{$argref->{options} || {}};
 
     # Caller can override the default rcfile. Setting this to
     # undef disables rcfile reading for the script.

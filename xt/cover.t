@@ -6,7 +6,7 @@ use File::Path;
 eval "use Test::Strict";
 plan skip_all => "Test::Strict not installed" if $@;
 
-all_cover_ok( 92, 't/' );
+all_cover_ok( 98, 't/' );
 
 # Clean up
 rmtree("cover_db");

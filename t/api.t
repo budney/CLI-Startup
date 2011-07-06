@@ -50,7 +50,7 @@ lives_ok { $app->init } "init() lives the first time";
 # Now that options were set, die_usage() should succeed--which means
 # that it should die with a usage message.
 trap { $app->die_usage };
-ok $trap->stderr =~ /usage:/, "die_usage() succeeds";
+like $trap->stderr, qr/usage:/, "die_usage() succeeds";
 ok $trap->stdout eq '', "Nothing printed to stdout";
 ok $trap->exit == 1, "Correct exit status";
 
@@ -61,5 +61,10 @@ throws_ok { $app->set_usage        } qr/after init/,  "set_usage() $dies";
 throws_ok { $app->set_rcfile       } qr/after init/,  "set_rcfile() $dies";
 throws_ok { $app->set_optspec({})  } qr/after init/,  "set_optspec() $dies";
 throws_ok { $app->set_write_rcfile } qr/after init/,  "set_write_rcfile() $dies";
+
+# Print warning messages, nicely formatted
+trap { $app->warn("scary warning") };
+like $trap->stderr, qr/WARNING/, "Printed a warning";
+like $trap->stderr, qr/scary warning/,  "Printed the correct message";
 
 done_testing();

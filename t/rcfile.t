@@ -269,6 +269,26 @@ EOF
     is_deeply $app1->get_config, $app4->get_config, "HTTP matches simple ini";
 }
 
+# Command-line overrides contents of rcfile
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+foo=bar
+bar=qux
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'foo=s' => 'foo', 'bar=s' => 'bar' },
+    });
+    
+    local @ARGV = ('--foo=baz');
+    $app->init;
+    ok $app->get_options->{foo} eq 'baz', "Options override rcfile";
+    ok $app->get_options->{bar} eq 'qux', "Value taken from rcfile";
+}
+
 # Clean up
 unlink $_ for glob("$dir/tmp/*");
 rmdir "$dir/tmp";
