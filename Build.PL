@@ -38,9 +38,10 @@ my $builder = $class->new(
     requires => {
         perl             => '5.8.8',
         'Class::Std'     => '0.01',
+        'Clone'          => 0,
         'Config::Simple' => '4.58',
         'Getopt::Long'   => '2.38',
-        'Clone'          => 0,
+        'Text::CSV'      => 0,
     },
 
     build_requires => {

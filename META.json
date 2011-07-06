@@ -32,6 +32,7 @@
             "Clone" : 0,
             "Config::Simple" : "4.58",
             "Getopt::Long" : "2.38",
+            "Text::CSV" : 0,
             "perl" : "v5.8.8"
          }
       }

@@ -12,6 +12,7 @@ WriteMakefile
                    'Getopt::Long' => '2.38',
                    'Config::Simple' => '4.58',
                    'Test::Exception' => 0,
+                   'Text::CSV' => 0,
                    'Test::Trap' => 0,
                    'Class::Std' => '0.01',
                    'Test::More' => 0,
