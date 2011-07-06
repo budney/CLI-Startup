@@ -9,6 +9,7 @@ META.yml
 README
 t/00-load.t
 t/api.t
+t/getopts.t
 t/init.t
 t/perl-fourish.t
 t/rcfile.t

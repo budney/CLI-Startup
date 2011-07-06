@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Symbol;
+use Text::CSV;
 use Class::Std;
 use Getopt::Long;
 use Config::Simple;
@@ -529,12 +530,34 @@ sub init {
 
 sub _process_command_line
 {
-    my $self = shift;
+    my $self    = shift;
+    my $optspec = $self->get_optspec;
     my %options;
 
     # Parse the command line and die if anything is wrong.
-    my $opts_ok = GetOptions( \%options, keys %{ $self->get_optspec } );
+    my $opts_ok = GetOptions( \%options, keys %$optspec );
     $self->die_usage if $options{help} || !$opts_ok ;
+
+    # Treat list and hash options as CSV records, so we can
+    # cope with quoting and values containing commas.
+    my $csv = Text::CSV->new({ allow_loose_quotes => 1 });
+
+    # Further process the array and hash options
+    for my $option (keys %options)
+    {
+        if ( ref $options{$option} eq 'ARRAY' )
+        {
+            my @values;
+            for my $value (@{$options{$option}})
+            {
+                $csv->parse($value)
+                    or $self->die("Can't parse --$option option: $value");
+                push @values, $csv->fields;
+            }
+
+            $options{$option} = \@values;
+        }
+    }
 
     # Process the rcfile option immediately, to override any settings
     # hard-wired in the app, as well as this module's defaults.
