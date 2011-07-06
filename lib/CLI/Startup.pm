@@ -169,7 +169,7 @@ sub get_options
     my $self = shift;
     $self->die("get_options() called before init()")
         unless $self->get_initialized;
-    return $options_of{ident $self};
+    return clone( $options_of{ident $self} );
 }
 
 =head2 get_optspec
@@ -178,6 +178,16 @@ sub get_options
 
 Returns the hash of command-line options. See C<set_optspec>
 for an example, and see C<Getopt::Long> for the full syntax.
+
+=cut
+
+my %optspec_of : ATTR( :initarg<optspec> );
+
+sub get_optspec
+{
+    my $self = shift;
+    return clone( $optspec_of{ident $self} );
+}
 
 =head2 set_optspec
 
@@ -196,8 +206,6 @@ It is an error to call C<set_optspec()> after calling C<init()>.
 
 =cut
 
-my %optspec_of : ATTR( :get<optspec> :initarg<optspec> );
-
 sub set_optspec
 {
     my $self = shift;
@@ -209,6 +217,27 @@ sub set_optspec
         if $self->get_initialized;
 
     $optspec_of{ident $self} = clone($self->_validate_optspec($spec));
+}
+
+=head2 get_raw_options
+
+  $options = $app->get_raw_options;
+
+Returns the options actually supplied on the command line--i.e.,
+without adding in any defaults from the rcfile. Useful for checking
+which settings were actually requested, in cases where one option
+on the command line disables multiple options from the config file.
+
+=cut
+
+my %raw_options_of :ATTR();
+
+sub get_raw_options
+{
+    my $self = shift;
+    $self->die("get_raw_options() called before init()")
+        unless $self->get_initialized;
+    return clone( $raw_options_of{ident $self} );
 }
 
 =head2 get_rcfile
@@ -508,6 +537,9 @@ sub init {
     my $options = $self->_process_command_line;
     my $config  = $self->_read_config_file;
 
+    # Save the unprocessed command-line options
+    $raw_options_of{ident $self} = clone($options);
+
     # Now, merge the defaults with the command-line options.
     for my $option ( keys %{$config->{default}} )
     {
@@ -516,7 +548,7 @@ sub init {
     }
 
     # Save the fully-processed options
-    $options_of{ident $self} = $options;
+    $options_of{ident $self} = clone($options);
 
     # Mark the object as initialized
     $initialized_of{ident $self} = 1;

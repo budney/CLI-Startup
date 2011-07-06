@@ -29,6 +29,8 @@ close RC or die "Couldn't write $rcfile: $!";
 # way because there's no reason the FILES should be identical,
 # but it's a bug if the configuration data isn't.
 {
+    local @ARGV = ();
+
     # Create a CLI::Startup object and read the rc file
     my $app = CLI::Startup->new( {
         rcfile  => $rcfile,
@@ -44,6 +46,7 @@ close RC or die "Couldn't write $rcfile: $!";
     # into the command-line options
     is_deeply $app->get_options, { foo => 1, bar => 'baz' },
         "Command options contents";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 
     # Write the current settings to a second file for comparison
     $app->write_rcfile("$rcfile.check");
@@ -287,6 +290,7 @@ EOF
     $app->init;
     ok $app->get_options->{foo} eq 'baz', "Options override rcfile";
     ok $app->get_options->{bar} eq 'qux', "Value taken from rcfile";
+    is_deeply $app->get_raw_options, { foo => 'baz' }, "Raw command-line options";
 }
 
 # rcfile with listy settings
@@ -304,6 +308,7 @@ EOF
     $app->init;
 
     ok ref($app->get_options->{x}) eq 'ARRAY', "Option was listified";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 }
 
 # rcfile with multiple listy options
@@ -321,6 +326,7 @@ EOF
     $app->init;
 
     is_deeply $app->get_options->{x}, [qw/a b c d/], "Listy option";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 }
 
 # rcfile with hashy settings
@@ -339,6 +345,7 @@ EOF
 
     is_deeply $app->get_options->{x}, {a=>1, b=>2, c=>'3=3'},
         "Option was hashified";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 }
 
 # rcfile with a single hashy setting
@@ -356,6 +363,7 @@ EOF
     $app->init;
 
     is_deeply $app->get_options->{x}, {a=>1}, "Single hashy option";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 }
 
 # rcfile with empty-valued hash setting
@@ -375,6 +383,7 @@ EOF
 
     is_deeply $app->get_options->{x}, {a=>''}, "Blank-valued hashy option";
     is_deeply $app->get_options->{y}, {a=>''}, "Blank-valued hashy option";
+    is_deeply $app->get_raw_options, {}, "No command-line options";
 }
 
 # Clean up
