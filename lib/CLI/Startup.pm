@@ -378,6 +378,24 @@ sub _default_optspec
     };
 }
 
+# Breaks an option spec down into its components.
+sub _parse_spec
+{
+    my ($self, $spec) = @_;
+
+    # We really want the "name(s)" portion
+    $spec =~ /^([^:=!+]+)([:=!+]?).*([@%]?).*$/;
+
+    return {
+        spec  => $spec,
+        names => [ split /\|/, $1 ],
+        list  => ( $3 eq '@'             ? 1 : 0 ),
+        hash  => ( $3 eq '%'             ? 1 : 0 ),
+        bool  => ( $2 eq '' || $2 eq '!' ? 1 : 0 ),
+        flag  => ( $2 eq ''              ? 1 : 0 ),
+    };
+}
+
 # Returns a hash of option names and specs from the supplied
 # hash. Also converts undef to 0 in $optspec.
 sub _option_specs
@@ -390,13 +408,15 @@ sub _option_specs
     # to false.
     for my $option (keys %$optspec)
     {
-        $option  =~ /^([^:=]+).*$/;
-        my $name =  $1;
+        $optspec->{$option} ||= 0;
+        $option               = $self->_parse_spec($option);
 
-        $self->die("--$name option defined twice") if exists $option_specs{$name};
-
-        $option_specs{$name}   = $option;
-        $optspec->{$option}  ||= 0;
+        # The spec can define aliases
+        for my $name ( @{ $option->{names} } )
+        {
+            $self->die("--$name option defined twice") if exists $option_specs{$name};
+            $option_specs{$name} = $option->{spec};
+        }
     }
 
     return \%option_specs;
@@ -431,12 +451,17 @@ sub _validate_optspec
         # Noting more to do if the specs match
         next if $spec eq $default_specs->{$name};
 
-        # Otherwise it's a fatal error for the spec to be more than a bare word
-        $self->die("--$name option defined incorrectly") unless $spec eq $name;
+        # Otherwise it's a fatal error for the spec to be more than a bare word,
+        # possibly with aliases.
+        $spec = $self->_parse_spec($spec);
+        $self->die("--$name option defined incorrectly") unless $spec->{flag};
 
-        # Fix the option spec to match the default
-        my $help_text = delete $optspec->{$spec};
-        $optspec->{$default_specs->{$name}} = $help_text;
+        # Forget the aliases for default options
+        delete $option_specs->{$_} for @{ $spec->{names} };
+
+        # Delete the default spec for this option, since it's
+        # redundant with the spec we found.
+        delete $optspec->{$default_specs->{$name}};
     }
 
     # Make sure there's at least one option left
