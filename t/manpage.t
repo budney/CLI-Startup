@@ -11,7 +11,8 @@ plan skip_all => "Can't load CLI::Startup" if $@;
     local @ARGV = ('--manpage');
 
     trap { startup({ x => 'dummy option' }) };
-    ok $trap->leaveby eq 'return', "Normal return";
+    ok $trap->leaveby eq 'exit', "App exited";
+    ok $trap->exit == 0, "Normal exit";
     ok $trap->stderr, "Stuff printed to stderr";
     like $trap->stderr, qr/My::Module - An example module/, "POD contents printed";
 }

@@ -680,6 +680,8 @@ sub print_manpage
     $parser->output_fh(*STDERR);
     $parser->parse_file($0);
     $self->die_usage unless $parser->content_seen;
+
+    exit 0;
 }
 
 =head2 warn
