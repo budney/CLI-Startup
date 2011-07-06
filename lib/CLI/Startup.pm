@@ -386,15 +386,15 @@ sub _parse_spec
     my ($self, $spec) = @_;
 
     # We really want the "name(s)" portion
-    $spec =~ /^([^:=!+]+)([:=!+]?).*([@%]?).*$/;
+    $spec =~ /^([^:=!+]+)([:=!+]?)[^@%]*([@%]?).*$/;
 
     return {
         spec  => $spec,
         names => [ split /\|/, $1 ],
-        list  => ( $3 eq '@'             ? 1 : 0 ),
-        hash  => ( $3 eq '%'             ? 1 : 0 ),
-        bool  => ( $2 eq '' || $2 eq '!' ? 1 : 0 ),
-        flag  => ( $2 eq ''              ? 1 : 0 ),
+        list  => ( $3 eq '@' ? 1 : 0 ),
+        hash  => ( $3 eq '%' ? 1 : 0 ),
+        bool  => ( $2 eq '!' ? 1 : 0 ),
+        flag  => ( $2 eq ''  ? 1 : 0 ),
     };
 }
 
@@ -585,17 +585,47 @@ sub _read_config_file
     my $raw_config = $rcfile ? $rcfile->vars() : {};
     my ($defaults, $config) = ( {}, {} );
 
+    my %structure;
+
+    # Build a list of the array and hash configs, so we can
+    # unflatten them from the config file.
+    for my $option ( keys %{ $self->get_optspec } )
+    {
+        my $spec = $self->_parse_spec($option);
+
+        if ( $spec->{list} )
+        {
+            $structure{$_} = 'ARRAY' for @{$spec->{names}};
+        }
+        elsif ( $spec->{hash} )
+        {
+            $structure{$_} = 'HASH' for @{$spec->{names}};
+        }
+        else
+        {
+            $structure{$_} = 0 for @{$spec->{names}};
+        }
+    }
+
     # Now, in case the config file has sections, unflatten the hash.
     for my $option ( keys %$raw_config )
     {
         if ( $option =~ /^(.*)\.(.*)$/ )
         {
+            my ($key, $option, $value) = ($1, $2, $raw_config->{$option});
+
+            # Turn the value into a list or hash if necessary
+            $value = $self->_fix_structure( $value, $structure{$option} );
+
+            # Set the value
             $config->{$1}     ||= {};
-            $config->{$1}{$2}   = $raw_config->{$option};
+            $config->{$1}{$2}   = $value;
         }
         else
         {
-            $defaults->{$option} = $raw_config->{$option};
+            $defaults->{$option} = $self->_fix_structure(
+                $raw_config->{$option}, $structure{$option}
+            );
         }
     }
     $config->{default} = $defaults unless $config->{default};
@@ -604,6 +634,37 @@ sub _read_config_file
     $config_of{ident $self} = $config;
 
     return $config;
+}
+
+# Convert values into an arrayref or hashref if requested
+sub _fix_structure
+{
+    my ($self, $value, $type) = @_;
+
+    $type = 0 unless defined $type;
+
+    if ($type eq 'ARRAY')
+    {
+        return $value if ref $value eq 'ARRAY';
+        return [ $value ];
+    }
+
+    if ($type eq 'HASH')
+    {
+        $value = [ $value ] unless ref $value eq 'ARRAY';
+        my %hash;
+
+        for (@$value)
+        {
+            m/^([^=]+)=?(.*)$/;
+            $hash{$1} = $2;
+        }
+
+        return \%hash;
+    }
+
+    # There's nothing else we can do
+    return $value;
 }
 
 =head2 new

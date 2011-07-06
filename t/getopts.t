@@ -1,6 +1,7 @@
 # Test various sorts of command-line options
 
 use Test::More;
+use Test::Trap;
 
 eval "use CLI::Startup 'startup'";
 plan skip_all => "Can't load CLI::Startup" if $@;
@@ -12,6 +13,14 @@ plan skip_all => "Can't load CLI::Startup" if $@;
     is_deeply $options->{x},
         [qw/a b c d,1 e,2 f,3 g/],
         "Listy options";
+}
+
+# List-y options with an error
+{
+    local @ARGV = qw/ --x="a"b,1 /;
+    trap { startup({ 'x=s@' => 'listy x option' }) };
+    ok $trap->leaveby eq 'die', "Bad listy option";
+    like $trap->die, qr/can't parse/i, "Useful error message";
 }
 
 # Test hash-y options
@@ -35,6 +44,13 @@ plan skip_all => "Can't load CLI::Startup" if $@;
     local @ARGV = ( '--x=10', ('--x')x10 );
     my $options = startup({ 'x:+' => 'incrementable x option' });
     ok $options->{x} == 20, "Incrementable options";
+}
+
+# Negatable options
+{
+    local @ARGV = ( '--no-x' );
+    my $options = startup({ 'x!' => 'negatable x option' });
+    ok $options->{x} == 0, "Negatable options";
 }
 
 # Option with an alias

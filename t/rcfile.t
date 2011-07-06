@@ -289,6 +289,94 @@ EOF
     ok $app->get_options->{bar} eq 'qux', "Value taken from rcfile";
 }
 
+# rcfile with listy settings
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+x=a
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'x=s@' => 'x option' },
+    });
+    $app->init;
+
+    ok ref($app->get_options->{x}) eq 'ARRAY', "Option was listified";
+}
+
+# rcfile with multiple listy options
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+x=a,b,c, d
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'x=s@' => 'x option' },
+    });
+    $app->init;
+
+    is_deeply $app->get_options->{x}, [qw/a b c d/], "Listy option";
+}
+
+# rcfile with hashy settings
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+x=a=1, b=2, c=3=3
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'x=s%' => 'x option' },
+    });
+    $app->init;
+
+    is_deeply $app->get_options->{x}, {a=>1, b=>2, c=>'3=3'},
+        "Option was hashified";
+}
+
+# rcfile with a single hashy setting
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+x=a=1
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'x=s%' => 'x option' },
+    });
+    $app->init;
+
+    is_deeply $app->get_options->{x}, {a=>1}, "Single hashy option";
+}
+
+# rcfile with empty-valued hash setting
+{
+    open OUT, ">", $rcfile;
+    print OUT <<EOF;
+x=a=
+y=a
+EOF
+    close OUT;
+
+    my $app = CLI::Startup->new({
+        rcfile  => $rcfile,
+        options => { 'x=s%' => 'x option', 'y=s%' => 'y option' },
+    });
+    $app->init;
+
+    is_deeply $app->get_options->{x}, {a=>''}, "Blank-valued hashy option";
+    is_deeply $app->get_options->{y}, {a=>''}, "Blank-valued hashy option";
+}
+
 # Clean up
 unlink $_ for glob("$dir/tmp/*");
 rmdir "$dir/tmp";
