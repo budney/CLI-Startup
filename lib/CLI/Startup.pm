@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Symbol;
+use Pod::Text;
 use Text::CSV;
 use Class::Std;
 use Getopt::Long;
@@ -526,6 +527,9 @@ sub init {
 
     # Write back the config if requested
     $self->write_rcfile if $options->{'write-rcfile'};
+
+    # Print the POD manpage from the script, if requested
+    $self->print_manpage if $options->{manpage};
 }
 
 sub _process_command_line
@@ -656,6 +660,26 @@ sub BUILD {
         ? $argref->{usage}
         : "[options]"
     );
+}
+
+=head2 print_manpage
+
+  $app->print_manpage;
+
+Prints the formatted POD contained in the calling script.
+If there's no POD content in the file, then the C<--help>
+usage is printed instead.
+
+=cut
+
+sub print_manpage
+{
+    my $self   = shift;
+    my $parser = Pod::Text->new;
+
+    $parser->output_fh(*STDERR);
+    $parser->parse_file($0);
+    $self->die_usage unless $parser->content_seen;
 }
 
 =head2 warn
