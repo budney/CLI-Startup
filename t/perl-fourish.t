@@ -9,6 +9,29 @@ plan skip_all => "Can't load CLI::Startup" if $@;
 # Test that the sub was imported
 ok defined(&startup), "startup() was exported";
 
+# This isn't the version of anything; it's for testing
+our $VERSION = 3.1415;
+
+# Print the script version
+{
+    local @ARGV = ('--version');
+    trap { startup({ x => 'dummy option' }) };
+    ok $trap->leaveby eq 'exit', "App exits";
+    ok $trap->exit == 0, "Exit status 0";
+    like $trap->stderr, qr/3\.1415/, "Version was printed";
+}
+
+# Clear the version and try again
+{
+    $VERSION = 0;
+
+    local @ARGV = ('--version');
+    trap { startup({ x => 'dummy option' }) };
+    ok $trap->leaveby eq 'exit', "App exits";
+    ok $trap->exit == 0, "Exit status 0";
+    like $trap->stderr, qr/UNKNOWN/, "Version was unknown";
+}
+
 # Trivial command-line flag
 {
     local @ARGV = ('--verbose');
