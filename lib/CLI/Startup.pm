@@ -557,11 +557,14 @@ sub init {
     # Automatically processed options:
     #
 
-    # Write back the config if requested
-    $self->write_rcfile if $options->{'write-rcfile'};
+    # Print the version information, if requested
+    $self->print_version if $options->{version};
 
     # Print the POD manpage from the script, if requested
     $self->print_manpage if $options->{manpage};
+
+    # Write back the config if requested
+    $self->write_rcfile if $options->{'write-rcfile'};
 }
 
 sub _process_command_line
@@ -777,6 +780,28 @@ sub print_manpage
     exit 0;
 }
 
+=head2 print_version
+
+  $app->print_version;
+
+Prints the version of the calling script, if defined.
+
+=cut
+
+sub print_version
+{
+    my $self    = shift;
+    my $version = $::VERSION || "UNKNOWN";
+    my $name    = basename($0);
+
+    print STDERR <<EOF;
+This is $name, version $version
+    path: $0
+    perl: $^V
+EOF
+    exit 0;
+}
+
 =head2 warn
 
   $app->warn("warning message");
@@ -845,14 +870,14 @@ sub write_rcfile
     # OK, continue with the built-in writer.
     my $conf = Config::Simple->new( syntax => 'ini' );
 
-    my $settings = $self->get_config;
-    my $options  = $self->get_options;
+    my $settings      = $self->get_config;
+    my $options       = $self->get_options;
+    my $default_specs = $self->_option_specs($self->_default_optspec);
 
     # Copy the current options back into the "default"
     for my $option ( keys %$options )
     {
-        next if $option eq 'rcfile';
-        next if $option eq 'write-rcfile';
+        next if exists $default_specs->{$option};
         $settings->{default}{$option} = $options->{$option};
     }
 
