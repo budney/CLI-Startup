@@ -31,16 +31,39 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Every command-line script does (or should) accept command-line
-options, at the very least a C<--help> option, and should allow
-default options to be specified in a "resource" file, named by
-default C<$HOME/.SCRIPTNAMErc>.
+Good command-line scripts always support command-line options using
+Getopt::Long, and I<should> support default configuration in a .rc
+file, such as C<Config::Simple> supports. At minimum that should
+include a C<--help> option that explains the other options. Supporting
+all this takes quite a bit of boilerplate code. In my experience,
+doing it right takes several hundred lines of code that are practically
+the same in every script.
 
-This package accepts a simple hash of command-line options and
-uses it to generate command-line processing, a C<--help> message,
-and resource-file processing. These are all annoying chores that
-every script needs, and that are always essentially identical but
-for the specific options supported.
+C<CLI::Startup> is intended to factor away almost all of that
+boilerplate.  In the common case, all that's needed is a single
+hashref listing the options (using C<Getopt::Long> syntax) as keys,
+and a bit of help text as values. C<CLI::Startup> will automatically
+generate the command-line parsing, reading of an optional config
+file, merging of the two, and creation of a hash of the actual
+settings to be used for the current invocation. It automatically
+prints a usage message when it sees invalid options or the C<--help>
+option. It automatically supports an option to save the current
+settings in an rc file. It supports a C<--version> option that
+prints C<$::VERSION> from the calling script, and a C<--manpage>
+option that prints the formatted POD, if any, in the calling script.
+All the grunt work is handled for you.
+
+C<CLI::Startup> also supports additional options to disable any of
+those options I<except> C<--help>, which is I<always> supported,
+and to specify default options. It slightly enhances C<Getopt::Long>
+behavior by allowing repeatable options to be specified I<either>
+with multiple options I<or> with a commalist honoring CSV quoting
+conventions. It also enhances C<Config::Simple> behavior by supporting
+options with hashes as values, and by un-flattening the contents
+of INI files into a two-level hash.
+
+For convenience, C<CLI::Support> also supplies C<die()> and C<warn()>
+methods that prepend the name of the script and postpend a newline.
 
     use CLI::Startup;
 
@@ -67,7 +90,6 @@ for the specific options supported.
     ...
 
     # Print messages to the user, with helpful formatting
-    print $app->usage(); # Print the --help message
     $app->die_usage();   # Print the --help message and exit
     $app->warn();        # Format warnings nicely
     $app->die();         # Die with a nicely-formatted message
@@ -75,7 +97,7 @@ for the specific options supported.
 =head1 EXPORT
 
 If you really don't like object-oriented coding, or your needs are
-super-simple, C<CLI::Startup> exports a single method: C<startup>.
+super-simple, C<CLI::Startup> exports a single sub: C<startup()>.
 
 =head2 startup
 
@@ -86,11 +108,12 @@ super-simple, C<CLI::Startup> exports a single method: C<startup>.
   });
 
 Process command-line options specified in the argument hash.
-Automatically responds to the C<--help> option, or to invalid
+Automatically responds to to the C<--help> option, or to invalid
 options, by printing a help message and exiting. Otherwise returns
 a hash (or hashref, depending on the calling context) of the options
-requested. Automatically checks for default options in a resource
-file named C<$HOME/.SCRIPTNAMErc>.
+supplied on the command line. It also automatically checks for
+default options in a resource file named C<$HOME/.SCRIPTNAMErc> and
+folds them into the returned hash.
 
 If you want any fancy configuration, or you want to customize any
 behaviors, then you need to use the object-oriented interface.
