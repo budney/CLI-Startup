@@ -376,13 +376,17 @@ sub die_usage
     my $self    = shift;
     my $optspec = $self->get_optspec;
 
+    # This happens if options aren't defined in the constructor
+    # and then die_usage() is called directly or indirectly.
+    $self->die("die_usage() called without defining any options")
+        unless keys %$optspec;
+
     # Keep only the options that are actually used, and
     # sort them in dictionary order.
     my %options =
-        map { m/([^=:]+)[=:]?/; {$1, $_} }
+        map { ( $_->{names}[0], $_ ) }
+        map { $self->_parse_spec($_) }
         keys %$optspec;
-    $self->die("die_usage() called without defining any options")
-        unless keys %$optspec;
 
     # Note the length of the longest option
     my $length  = max map { length($_) } keys %options;
@@ -390,8 +394,30 @@ sub die_usage
     # Now print the help message.
     print  STDERR basename($0) . ": usage:\n";
     print  STDERR basename($0) . " " . $self->get_usage . "\n";
-    printf STDERR "    %-${length}s - %s\n", $_, $optspec->{$options{$_}}
-        for sort keys %options;
+
+    for my $option (keys %options)
+    {
+        my $indent = $length + 6;
+        my $spec   = $options{$option};
+
+        # Print the basic help option
+        printf STDERR "    %-${length}s - %s\n", $option, $spec->{desc};
+
+        # Print aliases, if any
+        if (@{ $spec->{names} } > 1)
+        {
+            my @aliases = @{ $spec->{names} };
+            shift @aliases;
+
+            printf STDERR "%${indent}s Aliases: %s\n", '', join(", ", @aliases);
+        }
+
+        # Print negation, if any
+        if ($spec->{bool})
+        {
+            printf STDERR "%${indent}s Negate this with --no-%s", '', $option;
+        }
+    }
 
     exit 1;
 }
@@ -417,9 +443,13 @@ sub _parse_spec
     # We really want the "name(s)" portion
     $spec =~ /^([^:=!+]+)([:=!+]?)[^@%]*([@%]?).*$/;
 
+    # Lookup the help text while we're at it
+    my $optspec = $self->get_optspec;
+
     return {
         spec  => $spec,
         names => [ split /\|/, $1 ],
+        desc  => $optspec->{$spec},
         list  => ( $3 eq '@' ? 1 : 0 ),
         hash  => ( $3 eq '%' ? 1 : 0 ),
         bool  => ( $2 eq '!' ? 1 : 0 ),

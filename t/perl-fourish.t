@@ -1,4 +1,7 @@
-# Test the non-object-oriented interface
+# Test the non-object-oriented interface.
+#
+# Lots of functionality tests are in this script, because
+# this interface is just so dang easy to use.
 
 use Test::More;
 use Test::Trap;
@@ -108,6 +111,24 @@ our $VERSION = 3.1415;
         ok $trap->leaveby eq 'die', "Error exit with invalid spec: $spec";
         like $trap->die, qr/defined incorrectly/i, "Error message printed";
     }
+}
+
+# --help text with boolean option
+{
+    local @ARGV = ('--help');
+    trap { startup({ 'x!' => 'negatable option' }) };
+
+    ok $trap->exit == 1, "Exit status";
+    like $trap->stderr, qr/Negate this with --no-x/, "Help text";
+}
+
+# --help text with aliases
+{
+    local @ARGV = ('--help');
+    trap { startup({ 'x|a|b|c' => 'aliased option' }) };
+
+    ok $trap->exit == 1, "Exit status";
+    like $trap->stderr, qr/Aliases: a, b, c/, "Help text";
 }
 
 done_testing();
