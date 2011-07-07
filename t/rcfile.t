@@ -14,12 +14,20 @@ my $dir    = getcwd();
 my $rcfile = "$dir/tmp/rcfile";
 mkdir "$dir/tmp";
 
-# Create an RC file
+# Create an RC file for testing. This file contains extra options,
+# to verify that writing BACK the file preserves those options,
+# even though CLI::Startup doesn't pay any attemption to them
+# at all.
 open RC, ">", $rcfile or die "Couldn't create $rcfile: $!";
 print RC <<EOF;
 [default]
 foo=1
 bar=baz
+
+[extras]
+a=1
+b=2
+c=3, 4, 5
 EOF
 close RC or die "Couldn't write $rcfile: $!";
 
@@ -39,7 +47,11 @@ close RC or die "Couldn't write $rcfile: $!";
     $app->init;
 
     # Config file contents are stored now
-    is_deeply $app->get_config, { default => { foo => 1, bar => 'baz' } },
+    is_deeply $app->get_config,
+        {
+            default => { foo => 1, bar => 'baz' },
+            extras  => { a => 1, b => 2, c => [qw/3 4 5/], }
+        },
         "Config file contents";
 
     # The "default" section of the config file is copied
