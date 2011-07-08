@@ -37,10 +37,15 @@ throws_ok { $app->set_optspec({}) } qr/No.*options defined/,
     "set_optspec() requires at least one non-default option";
 throws_ok { $app->set_optspec({ help => 1 }) } qr/No.*options defined/,
     "set_optspec() requires at least one non-default option";
+throws_ok { $app->set_default_settings    } qr/requires a hashref/,
+    "set_default_settings() requires an argument";
+throws_ok { $app->set_default_settings(1) } qr/requires a hashref/,
+    "set_default_settings() requires a hashref";
 
 # These calls should all live
 lives_ok { $app->set_usage('')             } "set_usage() lives";
 lives_ok { $app->set_rcfile('')            } "set_rcfile() lives";
+lives_ok { $app->set_default_settings({})  } "set_default_settings() lives";
 lives_ok { $app->set_write_rcfile('')      } "set_write_rcfile() lives";
 lives_ok { $app->set_write_rcfile(undef)   } "set_write_rcfile(undef) lives";
 lives_ok { $app->set_write_rcfile(sub{})   } "set_write_rcfile(sub{}) lives";
@@ -60,12 +65,14 @@ ok $trap->stderr eq '', "Nothing printed to stderr";
 ok $trap->exit == 1, "Correct exit status";
 
 # Some calls aren't allowed /after/ init
-my $dies = "dies after init()";
-throws_ok { $app->init             } qr/second time/, "init() $dies";
-throws_ok { $app->set_usage        } qr/after init/,  "set_usage() $dies";
-throws_ok { $app->set_rcfile       } qr/after init/,  "set_rcfile() $dies";
-throws_ok { $app->set_optspec({})  } qr/after init/,  "set_optspec() $dies";
-throws_ok { $app->set_write_rcfile } qr/after init/,  "set_write_rcfile() $dies";
+my $die = "dies after init()";
+my $err = qr/after init/;
+throws_ok { $app->init                     } qr/second time/, "init() $die";
+throws_ok { $app->set_usage                } $err, "set_usage() $die";
+throws_ok { $app->set_rcfile               } $err, "set_rcfile() $die";
+throws_ok { $app->set_optspec({})          } $err, "set_optspec() $die";
+throws_ok { $app->set_write_rcfile         } $err, "set_write_rcfile() $die";
+throws_ok { $app->set_default_settings({}) } $err, "set_default_settings() $die";
 
 # Print warning messages, nicely formatted
 trap { $app->warn("scary warning") };

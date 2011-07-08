@@ -963,22 +963,20 @@ sub write_rcfile
     my $conf = Config::Simple->new( syntax => 'ini' );
 
     my $settings      = $self->get_config;
-    my $options       = $self->get_options;
+    my $options       = $self->get_raw_options;
     my $default       = $self->get_default_settings;
     my $default_specs = $self->_option_specs($self->_default_optspec);
 
-    # Copy the app defaults into the config for any missing options
-    for my $option ( keys %$default )
-    {
-        next if exists $settings->{default}{$option};
-        $settings->{default}{$option} = $default->{$option};
-    }
+    # Copy the current options back into the "default" group
+    $settings->{default} = reduce { merge($a,$b) } (
+        $options, $settings->{default}, $default
+    );
 
-    # Copy the current options back into the "default"
-    for my $option ( keys %$options )
+    # Delete the automatically-supplied options; none of them belong
+    # in the rcfile.
+    for my $option (keys %$default_specs)
     {
-        next if exists $default_specs->{$option};
-        $settings->{default}{$option} = $options->{$option};
+        delete $settings->{default}{$option};
     }
 
     # Flatten the settings back into the $conf object

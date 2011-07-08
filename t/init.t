@@ -30,4 +30,11 @@ my $app;
     ok $app->get_usage eq 'usage', "Usage set correctly";
 }
 
+# Setting default args in initializer
+{
+    lives_ok { $app = CLI::Startup->new({ options => undef, default_settings => { a => 1 }}) }
+        "Constructor with default settings";
+    is_deeply $app->get_default_settings, { a => 1 }, "Settings are correct";
+}
+
 done_testing();
