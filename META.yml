@@ -23,7 +23,11 @@ requires:
   Class::Std: 0.01
   Clone: 0
   Config::Simple: 4.58
+  File::Basename: 0
   Getopt::Long: 2.38
+  Hash::Merge: 0
+  List::Util: 0
+  Pod::Text: 0
   Text::CSV: 0
   perl: v5.8.8
 resources:

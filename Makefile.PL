@@ -12,11 +12,15 @@ WriteMakefile
                    'Getopt::Long' => '2.38',
                    'Config::Simple' => '4.58',
                    'Test::Exception' => 0,
+                   'Hash::Merge' => 0,
+                   'Pod::Text' => 0,
                    'Text::CSV' => 0,
                    'Test::Trap' => 0,
                    'Class::Std' => '0.01',
                    'Test::More' => 0,
-                   'Clone' => 0
+                   'List::Util' => 0,
+                   'Clone' => 0,
+                   'File::Basename' => 0
                  }
 )
 ;
