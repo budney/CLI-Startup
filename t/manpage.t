@@ -13,8 +13,9 @@ plan skip_all => "Can't load CLI::Startup" if $@;
     trap { startup({ x => 'dummy option' }) };
     ok $trap->leaveby eq 'exit', "App exited";
     ok $trap->exit == 0, "Normal exit";
-    ok $trap->stderr, "Stuff printed to stderr";
-    like $trap->stderr, qr/My::Module - An example module/, "POD contents printed";
+    ok $trap->stdout, "Stuff printed to stdout";
+    ok $trap->stderr eq '', "Nothing printed to stderr";
+    like $trap->stdout, qr/My::Module - An example module/, "POD contents printed";
 }
 
 done_testing();

@@ -11,7 +11,8 @@ use Getopt::Long;
 use Config::Simple;
 use File::Basename;
 use Clone qw{ clone };
-use List::Util qw{ max };
+use Hash::Merge qw{ merge };
+use List::Util qw{ max reduce };
 
 use Exporter;
 our @ISA       = qw/Exporter/;
@@ -153,6 +154,41 @@ sub get_config
     $self->die("get_config() called before init()")
         unless $self->get_initialized;
     return $config_of{ident $self};
+}
+
+=head2 get_default_settings
+
+  $defaults = $app->get_default_settings;
+
+Returns default settings as a hashref. Default settings are applied
+with lower precedence than the rcfile contents, which is in turn
+applied with lower precedence than command-line options.
+
+=cut
+
+my %default_settings_of :ATTR( :get<default_settings> :initarg<default_settings> );
+
+=head2 set_default_settings
+
+  $app->set_default_settings(\%settings);
+
+Set the default settings for the command-line options.
+
+It is a fatal error to call C<set_default_settings()> after
+calling C<init()>.
+
+=cut
+
+sub set_default_settings
+{
+    my ($self, $settings) = @_;
+
+    $self->die("set_default_settings() requires a hashref")
+        unless defined $settings and ref $settings eq 'HASH';
+    $self->die("set_default_settings() called after init()")
+        if $self->get_initialized;
+
+    $default_settings_of{ident $self} = clone($settings);
 }
 
 =head2 get_initialized
@@ -415,8 +451,8 @@ sub die_usage
     my $length  = max map { length($_) } keys %options;
 
     # Now print the help message.
-    print  STDERR basename($0) . ": usage:\n";
-    print  STDERR basename($0) . " " . $self->get_usage . "\n";
+    print "usage: " . basename($0) . " " . $self->get_usage . "\n";
+    print "Options:\n";
 
     for my $option (keys %options)
     {
@@ -424,7 +460,7 @@ sub die_usage
         my $spec   = $options{$option};
 
         # Print the basic help option
-        printf STDERR "    %-${length}s - %s\n", $option, $spec->{desc};
+        printf "    %-${length}s - %s\n", $option, $spec->{desc};
 
         # Print aliases, if any
         if (@{ $spec->{names} } > 1)
@@ -432,13 +468,13 @@ sub die_usage
             my @aliases = @{ $spec->{names} };
             shift @aliases;
 
-            printf STDERR "%${indent}s Aliases: %s\n", '', join(", ", @aliases);
+            printf "%${indent}s Aliases: %s\n", '', join(", ", @aliases);
         }
 
         # Print negation, if any
         if ($spec->{bool})
         {
-            printf STDERR "%${indent}s Negate this with --no-%s", '', $option;
+            printf "%${indent}s Negate this with --no-%s\n", '', $option;
         }
     }
 
@@ -589,16 +625,16 @@ sub init {
     # Parse command-line options, then read the config file if any.
     my $options = $self->_process_command_line;
     my $config  = $self->_read_config_file;
+    my $default = $self->get_default_settings();
 
     # Save the unprocessed command-line options
     $raw_options_of{ident $self} = clone($options);
 
-    # Now, merge the defaults with the command-line options.
-    for my $option ( keys %{$config->{default}} )
-    {
-        next if exists $options->{$option};
-        $options->{$option} = $config->{default}{$option};
-    }
+    # Now, combine the command options, the config-file defaults,
+    # and the wired-in app defaults, in that order of precedence.
+    $options = reduce { merge($a,$b) } (
+        $options, $config->{default}, $default
+    );
 
     # Save the fully-processed options
     $options_of{ident $self} = clone($options);
@@ -788,6 +824,9 @@ sub BUILD {
     $self->set_optspec($argref->{options}) if keys %{$argref->{options} || {}};
 
     # Caller can override the default rcfile. Setting this to
+    $self->set_default_settings($argref->{default_settings})
+        if exists $argref->{default_settings};
+
     # undef disables rcfile reading for the script.
     $self->set_rcfile(
           exists $argref->{rcfile}
@@ -826,7 +865,7 @@ sub print_manpage
     my $self   = shift;
     my $parser = Pod::Text->new;
 
-    $parser->output_fh(*STDERR);
+    $parser->output_fh(*STDOUT);
     $parser->parse_file($0);
     $self->die_usage unless $parser->content_seen;
 
@@ -925,7 +964,15 @@ sub write_rcfile
 
     my $settings      = $self->get_config;
     my $options       = $self->get_options;
+    my $default       = $self->get_default_settings;
     my $default_specs = $self->_option_specs($self->_default_optspec);
+
+    # Copy the app defaults into the config for any missing options
+    for my $option ( keys %$default )
+    {
+        next if exists $settings->{default}{$option};
+        $settings->{default}{$option} = $default->{$option};
+    }
 
     # Copy the current options back into the "default"
     for my $option ( keys %$options )

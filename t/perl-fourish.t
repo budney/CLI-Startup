@@ -52,7 +52,7 @@ our $VERSION = 3.1415;
     trap { startup({ bar => 'bar option' }) };
 
     ok $trap->exit == 1, "Error status on invalid option";
-    like $trap->stderr, qr/usage:/, "Usage message printed";
+    like $trap->stdout, qr/usage:/, "Usage message printed";
 }
 
 # --help option automatically causes usage message
@@ -61,7 +61,7 @@ our $VERSION = 3.1415;
     trap { startup({ foo => 'foo option' }) };
 
     ok $trap->exit == 1, "Correct exit status on --help option";
-    like $trap->stderr, qr/usage:/, "Usage message printed";
+    like $trap->stdout, qr/usage:/, "Usage message printed";
 }
 
 # --help option with custom help text and usage
@@ -70,7 +70,7 @@ our $VERSION = 3.1415;
     trap { startup({ help => 'custom help', foo => 'bar' })};
 
     ok $trap->exit == 1, "Correct exit status on --help";
-    like $trap->stderr, qr/custom help/, "Custom help message printed";
+    like $trap->stdout, qr/custom help/, "Custom help message printed";
 }
 
 # --rcfile option with rcfile disabled
@@ -79,7 +79,7 @@ our $VERSION = 3.1415;
     trap { startup({ rcfile => undef, foo => 'bar' })};
 
     ok $trap->exit == 1, "Error status with disabled --rcfile";
-    like $trap->stderr, qr/usage:/, "Usage message printed";
+    like $trap->stdout, qr/usage:/, "Usage message printed";
 }
 
 # --write-rcfile option with rcfile diabled
@@ -88,9 +88,9 @@ our $VERSION = 3.1415;
     trap { startup({ 'write-rcfile' => undef, foo => 'bar' }) };
 
     ok $trap->exit == 1, "Error status with disabled --write-rcfile";
-    like $trap->stderr, qr/usage:/, "Usage message printed";
-    like $trap->stderr, qr/rcfile/, "--rcfile shown in help";
-    unlike $trap->stderr, qr/write-rcfile.*Write options/,
+    like $trap->stdout, qr/usage:/, "Usage message printed";
+    like $trap->stdout, qr/rcfile/, "--rcfile shown in help";
+    unlike $trap->stdout, qr/write-rcfile.*Write options/,
         "--write-rcfile not shown";
 }
 
@@ -119,7 +119,7 @@ our $VERSION = 3.1415;
     trap { startup({ 'x!' => 'negatable option' }) };
 
     ok $trap->exit == 1, "Exit status";
-    like $trap->stderr, qr/Negate this with --no-x/, "Help text";
+    like $trap->stdout, qr/Negate this with --no-x/, "Help text";
 }
 
 # --help text with aliases
@@ -128,7 +128,7 @@ our $VERSION = 3.1415;
     trap { startup({ 'x|a|b|c' => 'aliased option' }) };
 
     ok $trap->exit == 1, "Exit status";
-    like $trap->stderr, qr/Aliases: a, b, c/, "Help text";
+    like $trap->stdout, qr/Aliases: a, b, c/, "Help text";
 }
 
 done_testing();
