@@ -6,6 +6,8 @@ use Test::Trap;
 eval "use CLI::Startup 'startup'";
 plan skip_all => "Can't load CLI::Startup" if $@;
 
+no warnings 'qw';
+
 # Test list-y options
 {
     local @ARGV = qw/ --x=a,b -x=c -x="d,1" -x "e,2","f,3",g /;
@@ -15,9 +17,9 @@ plan skip_all => "Can't load CLI::Startup" if $@;
         "Listy options";
 }
 
-# List-y options with an error
+# List-y options with an error in the quoting
 {
-    local @ARGV = qw/ --x="a"b,1 /;
+    local @ARGV = qw/ --x="a /;
     trap { startup({ 'x=s@' => 'listy x option' }) };
     ok $trap->leaveby eq 'die', "Bad listy option";
     like $trap->die, qr/can't parse/i, "Useful error message";
