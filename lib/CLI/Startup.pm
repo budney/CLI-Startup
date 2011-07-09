@@ -60,7 +60,7 @@ and to specify default options. It slightly enhances C<Getopt::Long>
 behavior by allowing repeatable options to be specified I<either>
 with multiple options I<or> with a commalist honoring CSV quoting
 conventions. It also enhances C<Config::Simple> behavior by supporting
-options with hashes as values, and by un-flattening the contents
+options with hashes as values, and by unflattening the contents
 of INI files into a two-level hash.
 
 For convenience, C<CLI::Support> also supplies C<die()> and C<warn()>
