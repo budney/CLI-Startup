@@ -17,14 +17,6 @@ no warnings 'qw';
         "Listy options";
 }
 
-# List-y options with an error in the quoting
-{
-    local @ARGV = qw/ --x="a /;
-    trap { startup({ 'x=s@' => 'listy x option' }) };
-    ok $trap->leaveby eq 'die', "Bad listy option";
-    like $trap->die, qr/can't parse/i, "Useful error message";
-}
-
 # Test hash-y options
 {
     local @ARGV = qw/ --x=a=1 -x b=2 -x c=3=2+1 /;
