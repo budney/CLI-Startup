@@ -25,7 +25,7 @@ my $optspec = {
     'links!'       => 'Copy symbolic links as symbolic links. Implied by --archive',
     'owner!'       => 'Preserve file owners (super-user only). Implied by --archive',
     'perms!'       => 'Preserve file permissions. Implied by --archive',
-    'recursive!'   => 'Descend into subdirectories. Implied by --archive',
+    'recursive!'   => 'Descend into sub-directories. Implied by --archive',
     'restore'      => 'Use the destination as the source, and vice versa',
     'rsh=s'        => 'Remote shell command to use. Defaults to ssh',
     'rsync-path=s' => 'Path to rsync on the remote host',
@@ -152,7 +152,7 @@ A combination including C<--src> and C<--dest> helps you make routine backups.
 
 =head2 Default Options
 
-The default options are convenient for doing ad-hoc copies using rsync with default
+The default options are convenient for doing ad hoc copies using rsync with default
 options. It lets you say this:
 
   rs --src $HOME --dest backup:homedir/
@@ -280,7 +280,7 @@ the C<--exclude> option is also specified.
 =head2 --links
 
 Copy symbolic links as symbolic links. Implied by C<--archive>, which
-is enabled by default. This uption is unset by default, since it would
+is enabled by default. This option is unset by default, since it would
 be redundant. It can be explicitly disabled using the C<--no-links>
 option.
 
@@ -308,9 +308,9 @@ Read default settings from C<FILE> instead of C<$HOME/.rsrc>.
 
 =head2 --recursive
 
-Recurse into subdirectories. Implied by C<--archive>, which is
-enabled by default, so this option is unset by default. It can
-be specifically disabled using the C<--no-recursive> option.
+Recurse into sub-directories. Implied by C<--archive>, which is
+enabled by default, so this option is unset by default. It can be
+specifically disabled using the C<--no-recursive> option.
 
 =head2 --restore
 
