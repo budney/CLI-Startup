@@ -307,8 +307,8 @@ script. This includes the actual command-line options of the script,
 or the defaults found in the config file, if any, or the wired-in
 defaults from the script itself, in that order of precedence.
 
-Usually, this information is all your script really cares about
-this. It doesn't care about C<$app->get_config> or C<$app->get_optspec>
+Usually, this information is all your script really cares about.
+It doesn't care about C<$app->get_config> or C<$app->get_optspec>
 or any other building blocks that were used to ultimately build
 C<$app->get_options>.
 
@@ -405,7 +405,7 @@ Get the full path of the rcfile to read or write.
   $app->set_rcfile( $path_to_rcfile );
 
 Set the path to the rcfile to read or write. This overrides the
-build-in default of C<$HOME/.SCRIPTNAMErc>, but is in turn overridden
+built-in default of C<$HOME/.SCRIPTNAMErc>, but is in turn overridden
 by the C<--rcfile> option supported automatically by C<CLI::Startup>.
 
 It is an error to call C<set_rcfile()> after calling C<init()>.
@@ -418,7 +418,7 @@ sub set_rcfile
 {
     my ($self, $rcfile) = @_;
 
-    $self->die("set_optspec() called after init()")
+    $self->die("set_rcfile() called after init()")
         if $self->get_initialized;
     $rcfile_of{ident $self} = "$rcfile";
 }
@@ -1104,8 +1104,8 @@ sub write_rcfile
         $options, $settings->{default}, $default
     );
 
-    # Delete the automatically-supplied options; none of them belong
-    # in the rcfile.
+    # Delete settings for the automatically-generated options; none of them
+    # belong in the rcfile.
     for my $option (keys %$default_specs)
     {
         delete $settings->{default}{$option};
