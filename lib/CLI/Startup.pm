@@ -231,7 +231,10 @@ sub startup
 
 Returns the contents of the resource file as a hashref. This
 attribute is read-only; it is set when the config file is read,
-which happens when C<$app->init()> is called.
+which happens when C<$app->init()> is called. The referece
+returned by this sub is to a clone of the settings, so although
+its contents can be modified, it will have no effect on the C<$app>
+object.
 
 It is a fatal error to call C<get_config()> before C<init()> is
 called.
@@ -245,7 +248,7 @@ sub get_config
     my $self = shift;
     $self->die("get_config() called before init()")
         unless $self->get_initialized;
-    return $config_of{ident $self};
+    return clone($config_of{ident $self});
 }
 
 =head2 get_default_settings
