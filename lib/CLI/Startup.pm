@@ -856,7 +856,7 @@ sub _read_config_file
         if ( ref $raw_config->{$key} ne 'HASH' )
         {
             $config->{default}{$key}
-                = $self->_fix_structure( $raw_config->{$key}, $key, $types );
+                = $self->_parse_setting( $raw_config->{$key}, $key, $types );
             next;
         }
 
@@ -865,7 +865,7 @@ sub _read_config_file
         for my $option ( keys %{ $raw_config->{$key} } )
         {
             my $value = $raw_config->{$key}{$option};
-            $value    = $self->_fix_structure( $value, $option, $types );
+            $value    = $self->_parse_setting( $value, $option, $types );
 
             $config->{$key}{$option} = $value;
         }
@@ -877,8 +877,8 @@ sub _read_config_file
     return $config;
 }
 
-# Convert values into an arrayref or hashref if requested
-sub _fix_structure
+# Convert string values into an arrayref or hashref as needed
+sub _parse_setting
 {
     my ($self, $value, $option, $types) = @_;
 
