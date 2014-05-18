@@ -578,7 +578,7 @@ sub die_usage
 
 # Returns the "default" optspec, consisting of options
 # that CLI::Startup normally creates automatically.
-sub _default_optspec
+sub _get_default_optspec
 {
     return {
         'help'          => 'Print this helpful help message',
@@ -668,26 +668,30 @@ sub _validate_optspec
 
     # Build a hash of option specs in $optspec, indexed by option name.
     # Die with an error if any option names collide.
-    my $option_specs  = $self->_option_specs($optspec);
-    my $defaults      = $self->_default_optspec;
-    my $default_specs = $self->_option_specs($defaults);
+    my $option_aliases  = $self->_option_specs($optspec);
+    my $default_options = $self->_get_default_optspec;
+    my $default_aliases = $self->_option_specs($default_options);
 
     # Verify that any default options specified in $optspec are specified
     # with the right signature OR are bare words. This makes for the
     # syntactic sugar of saying { rcfile => 0 } instead of { 'rcfile=s' => 0 }.
-    for my $name ( keys %$default_specs )
+    for my $name ( keys %$default_aliases )
     {
-        # If the option isn't mentioned, then set it to the default.
-        if ( not exists $option_specs->{$name} )
+        # If an alias in $default_aliases is not mentioned in $options_specs,
+        # then install a copy of the default spec.
+        if ( not exists $option_aliases->{$name} )
         {
-            my $spec = $default_specs->{$name};
-            $optspec->{$spec} = $defaults->{$spec};
+            my $spec = $default_aliases->{$name};
+            $optspec->{$spec} = $default_options->{$spec};
             next;
         }
-        my $spec = delete $option_specs->{$name};
 
-        # Noting more to do if the specs match
-        next if $spec eq $default_specs->{$name};
+        # A default option is listed in $option_aliases. Delete it, and decide
+        # what to do next.
+        my $spec = delete $option_aliases->{$name};
+
+        # Noting more to do if the options are named identically
+        next if $spec eq $default_aliases->{$name};
 
         # Otherwise it's a fatal error for the spec to be more than a bare word,
         # possibly with aliases.
@@ -695,18 +699,18 @@ sub _validate_optspec
         $self->die("--$name option defined incorrectly") unless $spec->{flag};
 
         # Forget the aliases for default options
-        delete $option_specs->{$_} for @{ $spec->{names} };
+        delete $option_aliases->{$_} for @{ $spec->{names} };
 
         # Delete the default spec for this option, since it's
         # redundant with the spec we found.
-        delete $optspec->{$default_specs->{$name}};
+        delete $optspec->{$default_aliases->{$name}};
     }
 
     # Make sure there's at least one option left
-    $self->die("No command-line options defined") unless keys %$option_specs;
+    $self->die("No command-line options defined") unless keys %$option_aliases;
 
     # The --help option is NOT optional
-    $optspec->{help} = $defaults->{help} unless $optspec->{help};
+    $optspec->{help} = $default_options->{help} unless $optspec->{help};
 
     # Remove disabled options
     map { delete $optspec->{$_} unless $optspec->{$_} } keys %$optspec;
@@ -806,7 +810,9 @@ sub _process_command_line
     }
 
     # Process the rcfile option immediately, to override any settings
-    # hard-wired in the app, as well as this module's defaults.
+    # hard-wired in the app, as well as this module's defaults. If the
+    # rcfile has already been set to a false value, however, then this
+    # option is disallowed.
     $self->set_rcfile($options{rcfile}) if defined $options{rcfile};
 
     # That's it!
@@ -965,11 +971,12 @@ sub BUILD {
     }
     $self->set_optspec($argref->{options}) if keys %{$argref->{options} || {}};
 
-    # Caller can override the default rcfile. Setting this to
+    # Caller can specify default settings for all options.
     $self->set_default_settings($argref->{default_settings})
         if exists $argref->{default_settings};
 
-    # undef disables rcfile reading for the script.
+    # Setting rcfile to undef in the constructor disables rcfile reading
+    # for the script.
     $self->set_rcfile(
           exists $argref->{rcfile}
         ? $argref->{rcfile}
@@ -1104,10 +1111,11 @@ sub write_rcfile
     # OK, continue with the built-in writer.
     my $conf = Config::Simple->new( syntax => 'ini' );
 
-    my $settings      = $self->get_config;
-    my $options       = $self->get_raw_options;
-    my $default       = $self->get_default_settings;
-    my $default_specs = $self->_option_specs($self->_default_optspec);
+    # Collate the settings for writing
+    my $settings        = $self->get_config;
+    my $options         = $self->get_raw_options;
+    my $default         = $self->get_default_settings;
+    my $default_aliases = $self->_option_specs($self->_get_default_optspec);
 
     # Copy the current options back into the "default" group
     $settings->{default} = reduce { merge($a,$b) } (
@@ -1116,7 +1124,7 @@ sub write_rcfile
 
     # Delete settings for the automatically-generated options; none of them
     # belong in the rcfile.
-    for my $option (keys %$default_specs)
+    for my $option (keys %$default_aliases)
     {
         delete $settings->{default}{$option};
     }
