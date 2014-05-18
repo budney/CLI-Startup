@@ -1216,12 +1216,6 @@ sub _choose_rcfile_writer
     $self->die("Unknown --rcfile-format option specified: \"$format\"");
 }
 
-# Stubs for writers needed above.
-sub _write_rcfile_xml  {}
-sub _write_rcfile_json {}
-sub _write_rcfile_yaml {}
-sub _write_rcfile_perl {}
-
 # Write the current settings to an INI file. Serialize hash and array
 # values for known command-line options. Leave everything else alone.
 sub _write_rcfile_ini
@@ -1284,6 +1278,69 @@ sub _write_rcfile_ini
 
     # Write settings to the file.
     Config::INI::Writer->write_file($settings, $file);
+}
+
+# Write the current settings to an XML file.
+sub _write_rcfile_xml
+{
+    my ($self, $file) = @_;
+
+    # Installing a XML module is optional.
+    eval "use XML::Simple";
+    $self->die("Can't write rcfile: XML::Simple is not installed.") if $@;
+
+    open RCFILE, ">", $file
+        or $self->die("Couldn't open file \"$file\": $!");
+    print RCFILE XMLout($self->get_options_as_defaults)
+        or $self->die("Couldn't write to file \"$file\": $!");
+    close RCFILE
+        or $self->die("Couldn't close file \"$file\": $!");
+}
+
+# Write the current settings to a JSON file.
+sub _write_rcfile_json
+{
+    my ($self, $file) = @_;
+
+    # Installing a JSON module is optional.
+    eval "use JSON::Any";
+    $self->die("Can't write rcfile: JSON::Any is not installed.") if $@;
+
+    my $json = JSON::Any->new;
+
+    open RCFILE, ">", $file
+        or $self->die("Couldn't open file \"$file\": $!");
+    print RCFILE $json->encode($self->get_options_as_defaults)
+        or $self->die("Couldn't write to file \"$file\": $!");
+    close RCFILE
+        or $self->die("Couldn't close file \"$file\": $!");
+}
+
+# Write the current settings to a YAML file.
+sub _write_rcfile_yaml
+{
+    my ($self, $file) = @_;
+
+    # Installing a YAML module is optional.
+    eval "use YAML::Any 'DumpFile'";
+    $self->die("Can't write rcfile: YAML::Any is not installed.") if $@;
+
+    DumpFile( $file, $self->get_options_as_defaults );
+}
+
+# Write the current settings to a Perl file.
+sub _write_rcfile_perl
+{
+    my ($self, $file) = @_;
+
+    local $Data::Dumper::Terse = 1;
+
+    open RCFILE, ">", $file
+        or $self->die("Couldn't open file \"$file\": $!");
+    print RCFILE Dumper( $self->get_options_as_defaults )
+        or $self->die("Couldn't write to file \"$file\": $!");
+    close RCFILE
+        or $self->die("Couldn't close file \"$file\": $!");
 }
 
 =head1 AUTHOR
