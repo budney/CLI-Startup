@@ -1228,24 +1228,62 @@ sub _write_rcfile_ini
 {
     my ($self, $file) = @_;
 
+    # Installing the INI module is optional
+    eval "use Config::INI::Writer";
+    $self->die("Can't write rcfile: Config::INI::Writer is not installed.")
+        if $@;
+
+    # Get out current settings, and then fix the formats of array and
+    # hash values.
     my $settings = $self->get_options_as_defaults;
+    my $types    = $self->_parse_specs;
 
-    # Create an INI file writer
-    my $conf = Config::Simple->new( syntax => 'ini' );
-
-    # Flatten the settings back into the $conf object
-    for my $key ( keys %$settings )
+    for my $setting ( keys %{ $settings->{default} } )
     {
-        for my $setting ( keys %{ $settings->{$key} } )
+        my $value = $settings->{default}{$setting};
+
+        # String data doesn't need anything done to it.
+        next unless ref $value;
+
+        # We produce compliant CSV; no options needed.
+        my $csv = Text::CSV->new;
+
+        # Serialize the two structures we know about.
+        if ( ref $value eq 'ARRAY' )
         {
-            $conf->param(
-                "$key.$setting" => $settings->{$key}{$setting}
-            );
+            # Just stringify. Deep structure will be silently lost.
+            $csv->combine( map {"$_"} @$value );
+            $value = $csv->string;
+
+            # Warn if the type is wrong, but proceed anyway.
+            $self->warn("Option \"$setting\" is unexpectedly an array")
+                if ($types->{$setting} || '') ne 'ARRAY';
         }
+        elsif ( ref $value eq 'HASH' )
+        {
+            # Just stringify. Deep structure will be silently lost.
+            $csv->combine( map {"$_=$value->{$_}"} keys %$value );
+            $value = $csv->string;
+
+            # Warn if the type is wrong, but proceed anyway.
+            $self->warn("Option \"$setting\" is unexpectedly a hash")
+                if ($types->{$setting} || '') ne 'HASH';
+        }
+        else
+        {
+            # Just stringify. We know this is wrong, but the user
+            # shouldn't be using an INI file for structured data.
+            $value = "$value";
+
+            # Don't know what to do; can't do anything about it.
+            $self->warn("Option \"$setting\" will be corrupt in config file");
+        }
+
+        $settings->{default}{$setting} = $value;
     }
 
-    # Write back the results
-    $conf->write($file);
+    # Write settings to the file.
+    Config::INI::Writer->write_file($settings, $file);
 }
 
 =head1 AUTHOR
