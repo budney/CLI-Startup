@@ -479,15 +479,25 @@ sub set_write_rcfile
     $self->die("set_write_rcfile() requires a coderef or false")
         if $writer && ref($writer) ne 'CODE';
 
-    # Toggle the --write-rcfile option spec if writing is toggled
     my $optspec = $optspec_of{ident $self}; # Need a reference, not a copy
+
+    # Toggle the various rcfile options if writing is turned on or off
     if ($writer)
     {
-        $optspec->{'write-rcfile'} ||= 'Write options to rcfile';
+        my $options = $self->_get_default_optspec;
+        my $aliases = $self->_option_aliases($options);
+
+        for my $alias ( qw{ rcfile write-rcfile rcfile-format } )
+        {
+            $optspec->{$alias} ||= $options->{$aliases->{$alias}};
+        }
     }
     else
     {
-        delete $optspec->{'write-rcfile'};
+        for my $alias ( qw{ rcfile write-rcfile rcfile-format } )
+        {
+            delete $optspec->{$alias};
+        }
     }
 
     # Save the writer
@@ -581,11 +591,12 @@ sub die_usage
 sub _get_default_optspec
 {
     return {
-        'help'          => 'Print this helpful help message',
-        'rcfile=s'      => 'Config file to load',
-        'write-rcfile'  => 'Write current options to rcfile',
-        'version'       => 'Print version information and exit',
-        'manpage'       => 'Print the manpage for this script',
+        'help'            => 'Print this helpful help message',
+        'rcfile=s'        => 'Config file to load',
+        'write-rcfile'    => 'Write current options to rcfile',
+        'rcfile-format=s' => 'Format to write the rcfile',
+        'version'         => 'Print version information and exit',
+        'manpage'         => 'Print the manpage for this script',
     };
 }
 
@@ -623,6 +634,7 @@ sub _parse_spec
     # Lookup the help text while we're at it
     my $optspec = $self->get_optspec;
 
+    # Note: doesn't identify string, int, float options
     return {
         spec   => $spec,
         names  => [ split /\|/, $1 ],
@@ -634,12 +646,12 @@ sub _parse_spec
     };
 }
 
-# Returns a hash of option names and specs from the supplied
-# hash. Also converts undef to 0 in $optspec.
-sub _option_specs
+# Returns a hash of option aliases and specifications from the
+# supplied hash. Also converts undef to 0 in $optspec.
+sub _option_aliases
 {
     my ($self, $optspec ) = @_;
-    my %option_specs;
+    my %option_aliases;
 
     # Make sure that there are no duplicated option names,
     # and that options with undefined help text are defined
@@ -652,12 +664,12 @@ sub _option_specs
         # The spec can define aliases
         for my $name ( @{ $option->{names} } )
         {
-            $self->die("--$name option defined twice") if exists $option_specs{$name};
-            $option_specs{$name} = $option->{spec};
+            $self->die("--$name option defined twice") if exists $option_aliases{$name};
+            $option_aliases{$name} = $option->{spec};
         }
     }
 
-    return \%option_specs;
+    return \%option_aliases;
 }
 
 # Returns an options spec hashref, with automatic options
@@ -668,51 +680,73 @@ sub _validate_optspec
 
     # Build a hash of option specs in $optspec, indexed by option name.
     # Die with an error if any option names collide.
-    my $option_aliases  = $self->_option_specs($optspec);
+    my $option_aliases  = $self->_option_aliases($optspec);
     my $default_options = $self->_get_default_optspec;
-    my $default_aliases = $self->_option_specs($default_options);
+    my $default_aliases = $self->_option_aliases($default_options);
 
     # Verify that any default options specified in $optspec are specified
     # with the right signature OR are bare words. This makes for the
     # syntactic sugar of saying { rcfile => 0 } instead of { 'rcfile=s' => 0 }.
     for my $name ( keys %$default_aliases )
     {
-        # If an alias in $default_aliases is not mentioned in $options_specs,
-        # then install a copy of the default spec.
+        # If an alias in $default_aliases is not mentioned in $options_aliases,
+        # then install the option in $optspec.
         if ( not exists $option_aliases->{$name} )
         {
-            my $spec = $default_aliases->{$name};
-            $optspec->{$spec} = $default_options->{$spec};
+            my $specification = $default_aliases->{$name};
+            $optspec->{$specification} = $default_options->{$specification};
             next;
         }
+        my $specification = delete $option_aliases->{$name};
 
-        # A default option is listed in $option_aliases. Delete it, and decide
-        # what to do next.
-        my $spec = delete $option_aliases->{$name};
+        # If the alias $name has the same specification as in the default
+        # options, then there's nothing to do.
+        next if $specification eq $default_aliases->{$name};
 
-        # Noting more to do if the options are named identically
-        next if $spec eq $default_aliases->{$name};
+	    # Otherwise it's a fatal error for the specification to be
+	    # more than a bare word, possibly with aliases. The bare word is
+        # interpreted as a shorthand for the full specificaion of the
+        # default option.
+        my $details = $self->_parse_spec($specification);
+        if ( not $details->{flag} )
+        {
+            $self->die("--$name option defined incorrectly; should be \"$_\"")
+                for ($default_aliases->{$name});
+        }
 
-        # Otherwise it's a fatal error for the spec to be more than a bare word,
-        # possibly with aliases.
-        $spec = $self->_parse_spec($spec);
-        $self->die("--$name option defined incorrectly") unless $spec->{flag};
+        # We've handled this option, so skip any aliases it may have.
+        delete $option_aliases->{$_} for @{ $details->{names} };
 
-        # Forget the aliases for default options
-        delete $option_aliases->{$_} for @{ $spec->{names} };
-
-        # Delete the default spec for this option, since it's
-        # redundant with the spec we found.
+        # We consider the specification we found to be a replacement for
+        # the default specification, so we delete the default one as
+        # redundant with the one we found.
         delete $optspec->{$default_aliases->{$name}};
     }
 
-    # Make sure there's at least one option left
-    $self->die("No command-line options defined") unless keys %$option_aliases;
-
-    # The --help option is NOT optional
+    # The --help option is NOT optional, so we override it if it evaluates
+    # to false. It must be present, because if we didn't find it above we
+    # would have inserted it.
     $optspec->{help} = $default_options->{help} unless $optspec->{help};
 
-    # Remove disabled options
+    # If the --rcfile option is disabled, then we must also delete the
+    # --rcfile-format and --write-rcfile options, since they make no
+    # sense in scripts that don't support config files.
+    if ( not $optspec->{$default_aliases->{rcfile}} )
+    {
+        delete $optspec->{$default_aliases->{$_}}
+            for qw{ rcfile rcfile-format write-rcfile };
+    }
+
+    # If rcfile writing is disabled, then we must delete the --rcfile-format
+    # option, which is meaningless when we don't write config files.
+    if ( not $optspec->{$default_aliases->{'write-rcfile'}} )
+    {
+        delete $optspec->{$default_aliases->{'rcfile-format'}};
+    }
+
+    # Remove any other disabled options. Options are disabled by
+    # setting them to anything that evaluates to false. We made
+    # sure it was defined in the call to _parse_spec() above.
     map { delete $optspec->{$_} unless $optspec->{$_} } keys %$optspec;
 
     return $optspec;
@@ -1115,7 +1149,7 @@ sub write_rcfile
     my $settings        = $self->get_config;
     my $options         = $self->get_raw_options;
     my $default         = $self->get_default_settings;
-    my $default_aliases = $self->_option_specs($self->_get_default_optspec);
+    my $default_aliases = $self->_option_aliases($self->_get_default_optspec);
 
     # Copy the current options back into the "default" group
     $settings->{default} = reduce { merge($a,$b) } (
@@ -1143,6 +1177,48 @@ sub write_rcfile
     # Write back the results
     $conf->write($file);
 }
+
+# Choose the correct built-in config writer based on the current
+# value of --rcfile-format.
+sub _choose_rcfile_writer
+{
+    my $self = shift;
+
+    # If a writer was specified by the user, we don't have to think.
+    # If it evaluates to false, or isn't a coderef, write_rcfile()
+    # will abort with an error.
+    if ( exists $write_rcfile_of{ident $self} )
+    {
+        return $write_rcfile_of{ident $self};
+    }
+
+    my $writer = {
+        INI  => \&_write_rcfile_ini,
+        XML  => \&_write_rcfile_xml,
+        JSON => \&_write_rcfile_json,
+        YAML => \&_write_rcfile_yaml,
+        PERL => \&_write_rcfile_perl,
+    };
+
+    # Decide what the default should be: INI falling back on Perl
+    eval "use Config::INI::Writer";
+    my $default = $@ ? 'PERL' : 'INI';
+
+    # Check whether a file format was specified; if not, use the default.
+    my $options = $self->get_options;
+    my $format  = uc( $options->{'rcfile-format'} || $default );
+
+    return $writer->{$format} if defined $writer->{$format};
+
+    $self->die("Unknown --rcfile-format option specified: \"$format\"");
+}
+
+# Stubs for writers needed above.
+sub _write_rcfile_ini  {}
+sub _write_rcfile_xml  {}
+sub _write_rcfile_json {}
+sub _write_rcfile_yaml {}
+sub _write_rcfile_perl {}
 
 =head1 AUTHOR
 
