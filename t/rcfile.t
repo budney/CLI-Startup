@@ -114,9 +114,7 @@ close RC or die "Couldn't write $rcfile: $!";
     });
     lives_ok { $app->init } "Init with nonexistent command-line rcfile";
     ok $app->get_rcfile eq "$file", "rcfile set correctly";
-    is_deeply $app->get_config, {
-        default => { foo=>1, bar=>'baz' }
-    }, "Config is empty";
+    is_deeply $app->get_config, { default => {} }, "Config is initially empty.";
     ok -r "$file", "File was created";
 
     my $app2 = CLI::Startup->new({
@@ -124,7 +122,8 @@ close RC or die "Couldn't write $rcfile: $!";
         options => { foo => 'bar' },
     });
     $app2->init;
-    is_deeply $app2->get_config, $app->get_config, "Writeback is idempotent";
+    is_deeply $app2->get_config, { default => { foo => 1, bar => 'baz' }},
+        "Writeback is idempotent";
 }
 
 # Specify a config file in the constructor, then change it, and
@@ -294,7 +293,7 @@ close RC or die "Couldn't write $rcfile: $!";
 
         # JSON config file
         open OUT, ">", $rcfile;
-        print OUT '{\n    "default": {\n        "bar":"baz",\n        "foo":"bar"\n}\n';
+        print OUT qq{{\n    "default": {\n        "bar":"baz",\n        "foo":"bar"\n}\n}};
         close OUT;
 
         my $app5 = CLI::Startup->new({
