@@ -1120,10 +1120,7 @@ sub write_rcfile
         unless $self->get_initialized;
 
     # Check whether a writer has been set
-    my $writer
-        = exists $write_rcfile_of{ident $self}
-        ? $write_rcfile_of{ident $self}
-        : \&_write_rcfile_ini;
+    my $writer = $self->_choose_rcfile_writer;
 
     # If there's no file to write, abort.
     my $file = shift || $self->get_rcfile;
