@@ -932,11 +932,21 @@ sub _fix_structure
   my $app = CLI::Startup->new({
     rcfile       => $rcfile_path, # Set to false to disable rc files
     write_rcfile => \&write_sub,  # Set to false to disable writing
-    optspec      => \%options,
+    options      => \%options,
+    defaults     => \%defaults,
   });
 
-Create a new C<CLI::Startup> object to process the options
-defined in C<\%options>.
+Create a new C<CLI::Startup> object to process the options defined
+in C<\%options>. Options not specified on the command line or in a
+config file will be set to the value contained in C<\%defaults>,
+if any.
+
+Setting the C<rcfile> option to a false value disables the C<--rcfile>
+option, which in turn prevents the script from reading config files.
+
+Setting the C<write_rcfile> option to a false value disables writing
+config files with the C<--write-rcfile> option, but does not disable
+reading config files created some other way.
 
 =head2 BUILD
 
