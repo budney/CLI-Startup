@@ -1123,27 +1123,42 @@ sub write_rcfile
     my $writer
         = exists $write_rcfile_of{ident $self}
         ? $write_rcfile_of{ident $self}
-        : 1;
-
-    # If there's a writer, call it.
-    if ( ref $writer eq 'CODE' )
-    {
-        $writer->($self);
-        return;
-    }
-
-    # If writing is disabled, abort.
-    if ( not $writer )
-    {
-        $self->die("write_rcfile() disabled, but called anyway");
-    }
+        : \&_write_rcfile_ini;
 
     # If there's no file to write, abort.
     my $file = shift || $self->get_rcfile;
     $self->die("Write rcfile: no file specified") unless $file;
 
-    # OK, continue with the built-in writer.
-    my $conf = Config::Simple->new( syntax => 'ini' );
+    # If there's a writer, call it.
+    if ( ref $writer eq 'CODE' )
+    {
+        $writer->($self, $file);
+        return;
+    }
+    else
+    {
+        $self->die("write_rcfile() disabled, but called anyway");
+    }
+}
+
+=head2 get_options_as_defaults
+
+    $options = $app->get_options_as_defaults;
+
+Returns the same hashref as C<$app->get_config> would do, except that
+C<$options->{default}> is overridden with the current settings of the
+app. This is a helper method if you write a function to write config
+files in some format not natively supported by C<CLI::Startup>. It lets
+you freeze the state of the current command line as the default for
+future runs.
+
+This sub will also strip out any of the auto-generated options, like
+--help and --rcfile, since they don't belong in a config file.
+
+=cut
+sub get_options_as_defaults
+{
+    my $self = shift;
 
     # Collate the settings for writing
     my $settings        = $self->get_config;
@@ -1163,19 +1178,7 @@ sub write_rcfile
         delete $settings->{default}{$option};
     }
 
-    # Flatten the settings back into the $conf object
-    for my $key ( keys %$settings )
-    {
-        for my $setting ( keys %{ $settings->{$key} } )
-        {
-            $conf->param(
-                "$key.$setting" => $settings->{$key}{$setting}
-            );
-        }
-    }
-
-    # Write back the results
-    $conf->write($file);
+    return $settings;
 }
 
 # Choose the correct built-in config writer based on the current
@@ -1214,11 +1217,36 @@ sub _choose_rcfile_writer
 }
 
 # Stubs for writers needed above.
-sub _write_rcfile_ini  {}
 sub _write_rcfile_xml  {}
 sub _write_rcfile_json {}
 sub _write_rcfile_yaml {}
 sub _write_rcfile_perl {}
+
+# Write the current settings to an INI file. Serialize hash and array
+# values for known command-line options. Leave everything else alone.
+sub _write_rcfile_ini
+{
+    my ($self, $file) = @_;
+
+    my $settings = $self->get_options_as_defaults;
+
+    # Create an INI file writer
+    my $conf = Config::Simple->new( syntax => 'ini' );
+
+    # Flatten the settings back into the $conf object
+    for my $key ( keys %$settings )
+    {
+        for my $setting ( keys %{ $settings->{$key} } )
+        {
+            $conf->param(
+                "$key.$setting" => $settings->{$key}{$setting}
+            );
+        }
+    }
+
+    # Write back the results
+    $conf->write($file);
+}
 
 =head1 AUTHOR
 
