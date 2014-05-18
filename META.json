@@ -4,7 +4,7 @@
       "Len Budney <len.budney@gmail.com>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4005, CPAN::Meta::Converter version 2.130880",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "perl_5"
    ],
@@ -30,6 +30,7 @@
          "requires" : {
             "Class::Std" : "0.01",
             "Clone" : "0",
+            "Config::Any" : "0",
             "Config::Simple" : "4.58",
             "File::Basename" : "0",
             "File::HomeDir" : "0.97",

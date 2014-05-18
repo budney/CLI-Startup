@@ -40,6 +40,7 @@ my $builder = $class->new(
         'Class::Std'     => '0.01',
         'Clone'          => 0,
         'Config::Simple' => '4.58',
+        'Config::Any'    => 0,
         'File::Basename' => 0,
         'File::HomeDir'  => '0.97',
         'Getopt::Long'   => '2.38',

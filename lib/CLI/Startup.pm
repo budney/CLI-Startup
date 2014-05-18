@@ -7,6 +7,7 @@ use Symbol;
 use Pod::Text;
 use Text::CSV;
 use Class::Std;
+use Config::Any;
 use Getopt::Long;
 use File::HomeDir;
 use Config::Simple;
@@ -34,12 +35,12 @@ our $VERSION = '0.08';
 =head1 DESCRIPTION
 
 Good command-line scripts always support command-line options using
-Getopt::Long, and I<should> support default configuration in a .rc
-file, such as C<Config::Simple> supports. At minimum that should
-include a C<--help> option that explains the other options. Supporting
-all this takes quite a bit of boilerplate code. In my experience,
-doing it right takes several hundred lines of code that are practically
-the same in every script.
+Getopt::Long, and I<should> support default configuration in a file
+in a standard format like YAML, JSON, XML, INI, etc. At minimum
+it should include a C<--help> option that explains the other
+options. Supporting all this takes quite a bit of boilerplate code.
+In my experience, doing it right takes several hundred lines of
+code that are practically the same in every script.
 
 C<CLI::Startup> is intended to factor away almost all of that
 boilerplate.  In the common case, all that's needed is a single
@@ -60,9 +61,11 @@ those options I<except> C<--help>, which is I<always> supported,
 and to specify default options. It slightly enhances C<Getopt::Long>
 behavior by allowing repeatable options to be specified I<either>
 with multiple options I<or> with a commalist honoring CSV quoting
-conventions. It also enhances C<Config::Simple> behavior by supporting
-options with hashes as values, and by unflattening the contents
-of INI files into a two-level hash.
+conventions. It also enhances INI file parsing to support hash-valued
+options of the form:
+
+    [default]
+    hash=a=1, b=2, c=3
 
 For convenience, C<CLI::Support> also supplies C<die()> and C<warn()>
 methods that prepend the name of the script and postpend a newline.
@@ -74,6 +77,8 @@ methods that prepend the name of the script and postpend a newline.
         'outfile=s'  => 'An option for specifying an output file',
         'password=s' => 'A password to use for something',
         'email=s@'   => 'Some email addresses to notify of something',
+        'map=s%'     => 'Some name/value pairs mapping something to something',
+        'x|y=i'      => 'Integer --x, could also be called --y',
         'verbose'    => 'Verbose output flag',
         'lines:i'    => 'Optional - the number of lines to process',
         'retries:5'  => 'Optional - number of retries; defaults to 5',
@@ -527,7 +532,7 @@ sub die_usage
     $self->die("die_usage() called without defining any options")
         unless keys %$optspec;
 
-    # Keep only the options that are actually used.
+    # In the usage text, show the option names, not the aliases.
     my %options =
         map { ( $_->{names}[0], $_ ) }
         map { $self->_parse_spec($_) }
@@ -581,6 +586,29 @@ sub _default_optspec
     };
 }
 
+# Parses the option specs, identifying their data types
+sub _parse_specs
+{
+    my $self = shift;
+
+    my %structure;
+
+    # Build a list of the array and hash configs, so we can
+    # unflatten them from the config file if necessary.
+    for my $option ( keys %{ $self->get_optspec } )
+    {
+        my $spec = $self->_parse_spec($option);
+
+        for my $type (qw{ array hash bool flag })
+        {
+            next unless $spec->{$type};
+            $structure{$_} = uc($type) for @{$spec->{names}};
+        }
+    }
+
+    return \%structure;
+}
+
 # Breaks an option spec down into its components.
 sub _parse_spec
 {
@@ -593,13 +621,13 @@ sub _parse_spec
     my $optspec = $self->get_optspec;
 
     return {
-        spec  => $spec,
-        names => [ split /\|/, $1 ],
-        desc  => $optspec->{$spec},
-        list  => ( $3 eq '@' ? 1 : 0 ),
-        hash  => ( $3 eq '%' ? 1 : 0 ),
-        bool  => ( $2 eq '!' ? 1 : 0 ),
-        flag  => ( $2 eq ''  ? 1 : 0 ),
+        spec   => $spec,
+        names  => [ split /\|/, $1 ],
+        desc   => $optspec->{$spec},
+        array  => ( $3 eq '@' ? 1 : 0 ),
+        hash   => ( $3 eq '%' ? 1 : 0 ),
+        bool   => ( $2 eq '!' ? 1 : 0 ),
+        flag   => ( $2 eq ''  ? 1 : 0 ),
     };
 }
 
@@ -753,7 +781,7 @@ sub _process_command_line
     my $opts_ok = GetOptions( \%options, keys %$optspec );
     $self->die_usage if $options{help} || !$opts_ok ;
 
-    # Treat list and hash options as CSV records, so we can
+    # Treat array and hash options as CSV records, so we can
     # cope with quoting and values containing commas.
     my $csv = Text::CSV->new({ allow_loose_quotes => 1 });
 
@@ -784,62 +812,61 @@ sub _process_command_line
 
 sub _read_config_file
 {
-    my $self = shift;
+    my $self    = shift;
+    my $types   = $self->_parse_specs;
+    my $rcfile  = $self->get_rcfile || '';
+    my $options = {
+        files         => [$rcfile],
+        use_ext       => 0,
+        force_plugins => [qw{
+	        Config::Any::INI Config::Any::XML Config::Any::YAML
+	        Config::Any::JSON Config::Any::Perl
+        }],
+    };
 
-    my $rcfile = $self->get_rcfile || '';
-    $rcfile
-        = $rcfile && -r $rcfile
-        ? Config::Simple->new($rcfile)
-        : '';
+    my $raw_config;
 
-    # Extract the contents of the config
-    my $raw_config = $rcfile ? $rcfile->vars() : {};
-    my ($defaults, $config) = ( {}, {} );
-
-    my %structure;
-
-    # Build a list of the array and hash configs, so we can
-    # unflatten them from the config file.
-    for my $option ( keys %{ $self->get_optspec } )
+    # Attempt to parse the file, if any
+    if ( $rcfile && -r $rcfile )
     {
-        my $spec = $self->_parse_spec($option);
-
-        if ( $spec->{list} )
-        {
-            $structure{$_} = 'ARRAY' for @{$spec->{names}};
-        }
-        elsif ( $spec->{hash} )
-        {
-            $structure{$_} = 'HASH' for @{$spec->{names}};
-        }
-        else
-        {
-            $structure{$_} = 0 for @{$spec->{names}};
-        }
+        my $files   = Config::Any->load_files( $options );
+        $files      = shift @$files || {};
+        $raw_config = $files->{$rcfile} || {};
     }
+    else
+    {
+        $raw_config = {};
+    }
+
+    my $config = { default => {} };
+
+    # Now parse strings if they're supposed to be hashes or arrays.
+    # This is basically a fix for file formats like INI, that can't
+    # encode data structures.
 
     # Now, in case the config file has sections, unflatten the hash.
-    for my $option ( keys %$raw_config )
+    for my $key ( keys %$raw_config )
     {
-        if ( $option =~ /^(.*)\.(.*)$/ )
+        # We expect a two-level hash, with a "default" section,
+        # but if there isn't one, or there are naked options,
+        # then we treat them as defaults.
+        if ( ref $raw_config->{$key} ne 'HASH' )
         {
-            my ($key, $option, $value) = ($1, $2, $raw_config->{$option});
-
-            # Turn the value into a list or hash if necessary
-            $value = $self->_fix_structure( $value, $structure{$option} );
-
-            # Set the value
-            $config->{$1}     ||= {};
-            $config->{$1}{$2}   = $value;
+            $config->{default}{$key}
+                = $self->_fix_structure( $raw_config->{$key}, $key, $types );
+            next;
         }
-        else
+
+        # Since this is a hashref, step through ITS keys, fixing them
+        # up.
+        for my $option ( keys %{ $raw_config->{$key} } )
         {
-            $defaults->{$option} = $self->_fix_structure(
-                $raw_config->{$option}, $structure{$option}
-            );
+            my $value = $raw_config->{$key}{$option};
+            $value    = $self->_fix_structure( $value, $option, $types );
+
+            $config->{$key}{$option} = $value;
         }
     }
-    $config->{default} = $defaults unless $config->{default};
 
     # Save the unflattened config for reference
     $config_of{ident $self} = $config;
@@ -850,32 +877,47 @@ sub _read_config_file
 # Convert values into an arrayref or hashref if requested
 sub _fix_structure
 {
-    my ($self, $value, $type) = @_;
+    my ($self, $value, $option, $types) = @_;
 
-    $type = 0 unless defined $type;
+    # If the data is the right type, or we have no spec, nothing to do.
+    my $type = $types->{$option} || 'NONE';
+    return $value if ref $value eq $type or $type eq 'NONE';
 
-    if ($type eq 'ARRAY')
+    # All other data types we support are scalars.
+    $self->die("Bad data type for \"$option\" option in config file.")
+        if ref $value;
+
+    # Boolean or flags are converted to boolean. Booleans are just
+    # negatable flags.
+    if ( $type eq 'BOOL' or $type eq 'FLAG' )
     {
-        return $value if ref $value eq 'ARRAY';
-        return [ $value ];
+        return $value ? 1 : 0;
     }
 
-    if ($type eq 'HASH')
+    # The only fix we implement is to parse CSV and primitive name/value
+    # pairs.
+    my $csv  = Text::CSV->new({
+        allow_loose_quotes => 1,
+        allow_whitespace   => 1,
+    });
+
+    # Start by turning the string to an array
+    $csv->parse($value);
+    $value = [ $csv->fields ];
+    return $value if $type eq 'ARRAY';
+
+    my %hash;
+
+    # Now it has to be a hash, so we need to split the values
+    # on equal signs or colons.
+
+    for (@$value)
     {
-        $value = [ $value ] unless ref $value eq 'ARRAY';
-        my %hash;
-
-        for (@$value)
-        {
-            m/^([^=]+)=?(.*)$/;
-            $hash{$1} = $2;
-        }
-
-        return \%hash;
+        m/^([^=:]+)(?:\s*[:=]\s*)?(.*)$/;
+        $hash{$1} = $2;
     }
 
-    # There's nothing else we can do
-    return $value;
+    return \%hash;
 }
 
 =head2 new
@@ -884,11 +926,11 @@ sub _fix_structure
   my $app = CLI::Startup->new( \%options );
 
   # Advanced: override some CLI::Startup defaults
-  my $app = CLI::Startup->new(
+  my $app = CLI::Startup->new({
     rcfile       => $rcfile_path, # Set to false to disable rc files
     write_rcfile => \&write_sub,  # Set to false to disable writing
-    optspec => \%options,
-  );
+    optspec      => \%options,
+  });
 
 Create a new C<CLI::Startup> object to process the options
 defined in C<\%options>.
