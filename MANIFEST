@@ -1,3 +1,4 @@
+bad-patch.txt
 Build.PL
 Changes
 Debian_CPANTS.txt
@@ -18,6 +19,8 @@ t/nomanpage.t
 t/perl-fourish.t
 t/rcfile.t
 t/write_rcfile.t
+tmp.bak/patch.txt
+tmp.bak/Startup.pm
 xt/boilerplate.t
 xt/cover.t
 xt/distribution.t

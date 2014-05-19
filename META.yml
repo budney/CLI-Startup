@@ -19,11 +19,15 @@ provides:
   CLI::Startup:
     file: lib/CLI/Startup.pm
     version: '0.08'
+recommends:
+  Config::INI::Writer: '0'
+  JSON::Any: '0'
+  XML::Simple: '0'
+  YAML::Any: '0'
 requires:
   Class::Std: '0.01'
   Clone: '0'
   Config::Any: '0'
-  Config::Simple: '4.58'
   File::Basename: '0'
   File::HomeDir: '0.97'
   Getopt::Long: '2.38'
