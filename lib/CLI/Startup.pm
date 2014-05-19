@@ -1,5 +1,7 @@
 package CLI::Startup;
 
+use English qw( -no_match_vars );
+
 use warnings;
 use strict;
 
@@ -16,8 +18,7 @@ use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
 
-use Exporter;
-our @ISA       = qw/Exporter/;
+use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
 =head1 NAME
@@ -166,7 +167,7 @@ of glue for invoking C<rsync> with the requested options.
       $rsync->exec({
           src    => delete $options->{src},
           dest   => delete $options->{dest},
-      }) or $app->warn("Rsync failed for $source -> $dest: $!");
+      }) or $app->warn("Rsync failed for $source -> $dest: $OS_ERROR");
 
   } while @ARGV;
 
@@ -246,7 +247,7 @@ my %config_of : ATTR();
 sub get_config
 {
     my $self = shift;
-    $self->die("get_config() called before init()")
+    $self->die('get_config() called before init()')
         unless $self->get_initialized;
     return clone($config_of{ident $self});
 }
@@ -278,12 +279,14 @@ sub set_default_settings
 {
     my ($self, $settings) = @_;
 
-    $self->die("set_default_settings() requires a hashref")
+    $self->die('set_default_settings() requires a hashref')
         unless defined $settings and ref $settings eq 'HASH';
-    $self->die("set_default_settings() called after init()")
+    $self->die('set_default_settings() called after init()')
         if $self->get_initialized;
 
     $default_settings_of{ident $self} = clone($settings);
+
+    return; # Needed so we don't leak a reference to the data!
 }
 
 =head2 get_initialized
@@ -321,7 +324,7 @@ my %options_of :ATTR();
 sub get_options
 {
     my $self = shift;
-    $self->die("get_options() called before init()")
+    $self->die('get_options() called before init()')
         unless $self->get_initialized;
     return clone( $options_of{ident $self} );
 }
@@ -365,12 +368,14 @@ sub set_optspec
     my $self = shift;
     my $spec = shift;
 
-    $self->die("set_optspec() requires a hashref")
+    $self->die('set_optspec() requires a hashref')
         unless ref $spec eq 'HASH';
-    $self->die("set_optspec() called after init()")
+    $self->die('set_optspec() called after init()')
         if $self->get_initialized;
 
     $optspec_of{ident $self} = clone($self->_validate_optspec($spec));
+
+    return; # Needed so we don't leak a reference to the data!
 }
 
 =head2 get_raw_options
@@ -389,7 +394,7 @@ my %raw_options_of :ATTR();
 sub get_raw_options
 {
     my $self = shift;
-    $self->die("get_raw_options() called before init()")
+    $self->die('get_raw_options() called before init()')
         unless $self->get_initialized;
     return clone( $raw_options_of{ident $self} );
 }
@@ -418,14 +423,16 @@ sub set_rcfile
 {
     my ($self, $rcfile) = @_;
 
-    $self->die("set_rcfile() called after init()")
+    $self->die('set_rcfile() called after init()')
         if $self->get_initialized;
     $rcfile_of{ident $self} = "$rcfile";
+
+    return;
 }
 
 =head2 get_usage
 
-  print "Usage: $0: " . $app->get_usage . "\n";
+  print "Usage: $PROGRAM_NAME: " . $app->get_usage . "\n";
 
 Returns the usage string printed as part of the C<--help>
 output. Unlikely to be useful outside the module.
@@ -448,9 +455,11 @@ sub set_usage
 {
     my ($self, $usage) = @_;
 
-    $self->die("set_usage() called after init()")
+    $self->die('set_usage() called after init()')
         if $self->get_initialized;
     $usage_of{ident $self} = "$usage";
+
+    return;
 }
 
 =head2 set_write_rcfile
@@ -474,9 +483,9 @@ sub set_write_rcfile
     my $self   = shift;
     my $writer = shift || 0;
 
-    $self->die("set_write_rcfile() called after init()")
+    $self->die('set_write_rcfile() called after init()')
         if $self->get_initialized;
-    $self->die("set_write_rcfile() requires a coderef or false")
+    $self->die('set_write_rcfile() requires a coderef or false')
         if $writer && ref($writer) ne 'CODE';
 
     my $optspec = $optspec_of{ident $self}; # Need a reference, not a copy
@@ -502,6 +511,8 @@ sub set_write_rcfile
 
     # Save the writer
     $write_rcfile_of{ident $self} = $writer;
+
+    return; # Needed so we don't leak a reference to the data!
 }
 
 =head1 SUBROUTINES/METHODS
@@ -517,11 +528,11 @@ died.
 
 =cut
 
-sub die
+sub die                         ## no critic ( Subroutines::RequireFinalReturn )
 {
     my $self = shift;
     my $msg  = shift;
-    my $name = basename($0);
+    my $name = basename($PROGRAM_NAME);
 
     CORE::die "$name: FATAL: $msg\n";
 }
@@ -542,25 +553,26 @@ sub die_usage
 
     # This happens if options aren't defined in the constructor
     # and then die_usage() is called directly or indirectly.
-    $self->die("die_usage() called without defining any options")
-        unless keys %$optspec;
+    $self->die('die_usage() called without defining any options')
+        unless keys %{$optspec};
 
     # In the usage text, show the option names, not the aliases.
     my %options =
         map { ( $_->{names}[0], $_ ) }
         map { $self->_parse_spec($_) }
-        keys %$optspec;
+        keys %{$optspec};
 
     # Note the length of the longest option
     my $length  = max map { length($_) } keys %options;
 
     # Now print the help message.
-    print "usage: " . basename($0) . " " . $self->get_usage . "\n";
+    print 'usage: ' . basename($PROGRAM_NAME) . ' ' . $self->get_usage . "\n";
     print "Options:\n";
 
     # Print the options, sorted in dictionary order.
     for my $option (sort keys %options)
     {
+        ## no critic (ValuesAndExpressions::ProhibitMagicNumbers)
         my $indent = $length + 6;
         my $spec   = $options{$option};
 
@@ -573,7 +585,7 @@ sub die_usage
             my @aliases = @{ $spec->{names} };
             shift @aliases;
 
-            printf "%${indent}s Aliases: %s\n", '', join(", ", @aliases);
+            printf "%${indent}s Aliases: %s\n", '', join(', ', @aliases);
         }
 
         # Print negation, if any
@@ -629,20 +641,23 @@ sub _parse_spec
     my ($self, $spec) = @_;
 
     # We really want the "name(s)" portion
-    $spec =~ /^([^:=!+]+)([:=!+]?)[^@%]*([@%]?).*$/;
+    my ( $specification, $type1, $type2 ) =
+        $spec =~ /^([^:=!+]+)([:=!+]?)[^@%]*([@%]?).*$/xms;
 
     # Lookup the help text while we're at it
     my $optspec = $self->get_optspec;
 
+    ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
+
     # Note: doesn't identify string, int, float options
     return {
         spec   => $spec,
-        names  => [ split /\|/, $1 ],
+        names  => [ split /[|]/xms, $specification ],
         desc   => $optspec->{$spec},
-        array  => ( $3 eq '@' ? 1 : 0 ),
-        hash   => ( $3 eq '%' ? 1 : 0 ),
-        bool   => ( $2 eq '!' ? 1 : 0 ),
-        flag   => ( $2 eq ''  ? 1 : 0 ),
+        array  => ( $type2 eq '@' ? 1 : 0 ),
+        hash   => ( $type2 eq '%' ? 1 : 0 ),
+        bool   => ( $type1 eq '!' ? 1 : 0 ),
+        flag   => ( $type1 eq ''  ? 1 : 0 ),
     };
 }
 
@@ -656,7 +671,7 @@ sub _option_aliases
     # Make sure that there are no duplicated option names,
     # and that options with undefined help text are defined
     # to false.
-    for my $option (keys %$optspec)
+    for my $option (keys %{$optspec})
     {
         $optspec->{$option} ||= 0;
         $option               = $self->_parse_spec($option);
@@ -687,7 +702,7 @@ sub _validate_optspec
     # Verify that any default options specified in $optspec are specified
     # with the right signature OR are bare words. This makes for the
     # syntactic sugar of saying { rcfile => 0 } instead of { 'rcfile=s' => 0 }.
-    for my $name ( keys %$default_aliases )
+    for my $name ( keys %{$default_aliases} )
     {
         # If an alias in $default_aliases is not mentioned in $options_aliases,
         # then install the option in $optspec.
@@ -747,7 +762,7 @@ sub _validate_optspec
     # Remove any other disabled options. Options are disabled by
     # setting them to anything that evaluates to false. We made
     # sure it was defined in the call to _parse_spec() above.
-    map { delete $optspec->{$_} unless $optspec->{$_} } keys %$optspec;
+    map { delete $optspec->{$_} unless $optspec->{$_} } keys %{$optspec};
 
     return $optspec;
 }
@@ -766,16 +781,17 @@ more than the example code above.
 
 =cut
 
-sub init {
+sub init
+{
     my $self = shift;
 
-    $self->die("init() method takes no arguments") if @_;
-    $self->die("init() called a second time")
+    $self->die('init() method takes no arguments') if @_;
+    $self->die('init() called a second time')
         if $self->get_initialized;
 
     # It's a fatal error to call init() without defining any
     # command-line options
-    $self->die("init() called without defining any command-line options")
+    $self->die('init() called without defining any command-line options')
         unless $self->get_optspec || 0;
 
     # Parse command-line options, then read the config file if any.
@@ -810,6 +826,8 @@ sub init {
 
     # Write back the config if requested
     $self->write_rcfile if $options->{'write-rcfile'};
+
+    return;
 }
 
 sub _process_command_line
@@ -819,7 +837,7 @@ sub _process_command_line
     my %options;
 
     # Parse the command line and die if anything is wrong.
-    my $opts_ok = GetOptions( \%options, keys %$optspec );
+    my $opts_ok = GetOptions( \%options, keys %{$optspec} );
     $self->die_usage if $options{help} || !$opts_ok ;
 
     # Treat array and hash options as CSV records, so we can
@@ -873,7 +891,7 @@ sub _read_config_file
     if ( $rcfile && -r $rcfile )
     {
         my $files   = Config::Any->load_files( $options );
-        $files      = shift @$files || {};
+        $files      = shift @{$files} || {};
         $raw_config = $files->{$rcfile} || {};
     }
     else
@@ -888,7 +906,7 @@ sub _read_config_file
     # encode data structures.
 
     # Now, in case the config file has sections, unflatten the hash.
-    for my $key ( keys %$raw_config )
+    for my $key ( keys %{$raw_config} )
     {
         # We expect a two-level hash, with a "default" section,
         # but if there isn't one, or there are naked options,
@@ -954,10 +972,10 @@ sub _parse_setting
     # Now it has to be a hash, so we need to split the values
     # on equal signs or colons.
 
-    for (@$value)
+    for (@{$value})
     {
-        m/^([^=:]+)(?:\s*[:=]\s*)?(.*)$/;
-        $hash{$1} = $2;
+        my ($key, $val) = m/^([^=:]+)(?:\s*[:=]\s*)?(.*)$/xms;
+        $hash{$key} = $val;
     }
 
     return \%hash;
@@ -994,7 +1012,8 @@ An internal method called by C<new()>.
 
 =cut
 
-sub BUILD {
+sub BUILD
+{
     my ($self, $id, $argref) = @_;
 
     # Shorthand: { options => \%options } can be
@@ -1009,12 +1028,14 @@ sub BUILD {
     $self->set_default_settings($argref->{default_settings})
         if exists $argref->{default_settings};
 
+    ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
+
     # Setting rcfile to undef in the constructor disables rcfile reading
     # for the script.
     $self->set_rcfile(
           exists $argref->{rcfile}
         ? $argref->{rcfile}
-        : File::HomeDir->my_home . "/." . basename($0) . "rc"
+        : File::HomeDir->my_home . '/.' . basename($PROGRAM_NAME) . 'rc'
     );
 
     # Caller can forbid writing of rcfiles by setting
@@ -1029,8 +1050,10 @@ sub BUILD {
     $self->set_usage(
           exists $argref->{usage}
         ? $argref->{usage}
-        : "[options]"
+        : '[options]'
     );
+
+    return;
 }
 
 =head2 print_manpage
@@ -1049,7 +1072,7 @@ sub print_manpage
     my $parser = Pod::Text->new;
 
     $parser->output_fh(*STDOUT);
-    $parser->parse_file($0);
+    $parser->parse_file($PROGRAM_NAME);
     $self->die_usage unless $parser->content_seen;
 
     exit 0;
@@ -1066,13 +1089,13 @@ Prints the version of the calling script, if defined.
 sub print_version
 {
     my $self    = shift;
-    my $version = $::VERSION || "UNKNOWN";
-    my $name    = basename($0);
+    my $version = $::VERSION || 'UNKNOWN';
+    my $name    = basename($PROGRAM_NAME);
 
-    print STDERR <<EOF;
+    print {\*STDERR} <<"EOF";
 This is $name, version $version
-    path: $0
-    perl: $^V
+    path: $PROGRAM_NAME
+    perl: $PERL_VERSION
 EOF
     exit 0;
 }
@@ -1092,9 +1115,11 @@ sub warn
 {
     my $self = shift;
     my $msg  = shift;
-    my $name = basename($0);
+    my $name = basename($PROGRAM_NAME);
 
     CORE::warn "$name: WARNING: $msg\n";
+
+    return;
 }
 
 =head2 write_rcfile
@@ -1116,7 +1141,7 @@ sub write_rcfile
     my $self = shift;
 
     # It's a fatal error to call write_rcfile() before init()
-    $self->die("write_rcfile() called before init()")
+    $self->die('write_rcfile() called before init()')
         unless $self->get_initialized;
 
     # Check whether a writer has been set
@@ -1124,18 +1149,19 @@ sub write_rcfile
 
     # If there's no file to write, abort.
     my $file = shift || $self->get_rcfile;
-    $self->die("Write rcfile: no file specified") unless $file;
+    $self->die('Write rcfile: no file specified') unless $file;
 
     # If there's a writer, call it.
     if ( ref $writer eq 'CODE' )
     {
         $writer->($self, $file);
-        return;
     }
     else
     {
-        $self->die("write_rcfile() disabled, but called anyway");
+        $self->die('write_rcfile() disabled, but called anyway');
     }
+
+    return;
 }
 
 =head2 get_options_as_defaults
@@ -1170,7 +1196,7 @@ sub get_options_as_defaults
 
     # Delete settings for the automatically-generated options; none of them
     # belong in the rcfile.
-    for my $option (keys %$default_aliases)
+    for my $option (keys %{$default_aliases})
     {
         delete $settings->{default}{$option};
     }
@@ -1201,16 +1227,17 @@ sub _choose_rcfile_writer
     };
 
     # Decide what the default should be: INI falling back on Perl
-    eval "use Config::INI::Writer";
-    my $default = $@ ? 'PERL' : 'INI';
+    eval 'use Config::INI::Writer';
+    my $default = $EVAL_ERROR ? 'PERL' : 'INI';
 
     # Check whether a file format was specified; if not, use the default.
     my $options = $self->get_options;
     my $format  = uc( $options->{'rcfile-format'} || $default );
 
-    return $writer->{$format} if defined $writer->{$format};
+    $self->die("Unknown --rcfile-format option specified: \"$format\"")
+        unless defined $writer->{$format};
 
-    $self->die("Unknown --rcfile-format option specified: \"$format\"");
+    return $writer->{$format};
 }
 
 # Write the current settings to an INI file. Serialize hash and array
@@ -1220,9 +1247,9 @@ sub _write_rcfile_ini
     my ($self, $file) = @_;
 
     # Installing the INI module is optional
-    eval "use Config::INI::Writer";
-    $self->die("Can't write rcfile: Config::INI::Writer is not installed.")
-        if $@;
+    eval 'use Config::INI::Writer';
+    $self->die('Can\'t write rcfile: Config::INI::Writer is not installed.')
+        if $EVAL_ERROR;
 
     # Get out current settings, and then fix the formats of array and
     # hash values.
@@ -1243,7 +1270,7 @@ sub _write_rcfile_ini
         if ( ref $value eq 'ARRAY' )
         {
             # Just stringify. Deep structure will be silently lost.
-            $csv->combine( map {"$_"} @$value );
+            $csv->combine( map {"$_"} @{$value} );
             $value = $csv->string;
 
             # Warn if the type is wrong, but proceed anyway.
@@ -1253,7 +1280,7 @@ sub _write_rcfile_ini
         elsif ( ref $value eq 'HASH' )
         {
             # Just stringify. Deep structure will be silently lost.
-            $csv->combine( map {"$_=$value->{$_}"} keys %$value );
+            $csv->combine( map {"$_=$value->{$_}"} keys %{$value} );
             $value = $csv->string;
 
             # Warn if the type is wrong, but proceed anyway.
@@ -1275,6 +1302,8 @@ sub _write_rcfile_ini
 
     # Write settings to the file.
     Config::INI::Writer->write_file($settings, $file);
+
+    return 1;
 }
 
 # Write the current settings to an XML file.
@@ -1283,15 +1312,18 @@ sub _write_rcfile_xml
     my ($self, $file) = @_;
 
     # Installing a XML module is optional.
-    eval "use XML::Simple";
-    $self->die("Can't write rcfile: XML::Simple is not installed.") if $@;
+    eval 'use XML::Simple';
+    $self->die('Can\'t write rcfile: XML::Simple is not installed.')
+        if $EVAL_ERROR;
 
-    open RCFILE, ">", $file
-        or $self->die("Couldn't open file \"$file\": $!");
-    print RCFILE XMLout($self->get_options_as_defaults)
-        or $self->die("Couldn't write to file \"$file\": $!");
-    close RCFILE
-        or $self->die("Couldn't close file \"$file\": $!");
+    open my $RCFILE, '>', $file
+        or $self->die("Couldn't open file \"$file\": $OS_ERROR");
+    print {$RCFILE} XMLout($self->get_options_as_defaults)
+        or $self->die("Couldn't write to file \"$file\": $OS_ERROR");
+    close $RCFILE
+        or $self->die("Couldn't close file \"$file\": $OS_ERROR");
+
+    return 1;
 }
 
 # Write the current settings to a JSON file.
@@ -1300,17 +1332,20 @@ sub _write_rcfile_json
     my ($self, $file) = @_;
 
     # Installing a JSON module is optional.
-    eval "use JSON::Any";
-    $self->die("Can't write rcfile: JSON::Any is not installed.") if $@;
+    eval 'use JSON::Any';
+    $self->die('Can\'t write rcfile: JSON::Any is not installed.')
+        if $EVAL_ERROR;
 
     my $json = JSON::Any->new;
 
-    open RCFILE, ">", $file
-        or $self->die("Couldn't open file \"$file\": $!");
-    print RCFILE $json->encode($self->get_options_as_defaults)
-        or $self->die("Couldn't write to file \"$file\": $!");
-    close RCFILE
-        or $self->die("Couldn't close file \"$file\": $!");
+    open my $RCFILE, '>', $file
+        or $self->die("Couldn't open file \"$file\": $OS_ERROR");
+    print {$RCFILE} $json->encode($self->get_options_as_defaults)
+        or $self->die("Couldn't write to file \"$file\": $OS_ERROR");
+    close $RCFILE
+        or $self->die("Couldn't close file \"$file\": $OS_ERROR");
+
+    return 1;
 }
 
 # Write the current settings to a YAML file.
@@ -1319,10 +1354,13 @@ sub _write_rcfile_yaml
     my ($self, $file) = @_;
 
     # Installing a YAML module is optional.
-    eval "use YAML::Any 'DumpFile'";
-    $self->die("Can't write rcfile: YAML::Any is not installed.") if $@;
+    eval 'use YAML::Any qw{DumpFile}';
+    $self->die('Can\'t write rcfile: YAML::Any is not installed.')
+        if $EVAL_ERROR;
 
     DumpFile( $file, $self->get_options_as_defaults );
+
+    return 1;
 }
 
 # Write the current settings to a Perl file.
@@ -1332,12 +1370,14 @@ sub _write_rcfile_perl
 
     local $Data::Dumper::Terse = 1;
 
-    open RCFILE, ">", $file
-        or $self->die("Couldn't open file \"$file\": $!");
-    print RCFILE Dumper( $self->get_options_as_defaults )
-        or $self->die("Couldn't write to file \"$file\": $!");
-    close RCFILE
-        or $self->die("Couldn't close file \"$file\": $!");
+    open my $RCFILE, '>', $file
+        or $self->die("Couldn't open file \"$file\": $OS_ERROR");
+    print {$RCFILE} Dumper( $self->get_options_as_defaults )
+        or $self->die("Couldn't write to file \"$file\": $OS_ERROR");
+    close $RCFILE
+        or $self->die("Couldn't close file \"$file\": $OS_ERROR");
+
+    return 1;
 }
 
 =head1 AUTHOR
