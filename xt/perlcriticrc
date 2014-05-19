@@ -1,9 +1,6 @@
 # Use brutal severity, with the caveats below.
 severity = 1
 
-# This is a todo: move the POD after __END__
-[-Documentation::RequirePodAtEnd]
-
 # This is a todo: add the usual POD sections.
 [-Documentation::RequirePodSections]
 

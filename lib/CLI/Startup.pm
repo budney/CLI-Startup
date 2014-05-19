@@ -21,199 +21,10 @@ use List::Util qw{ max reduce };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-=head1 NAME
-
-CLI::Startup - Simple initialization for command-line scripts
-
-=head1 VERSION
-
-Version 0.08
-
-=cut
-
 our $VERSION = '0.08';
 
-=head1 DESCRIPTION
-
-Good command-line scripts always support command-line options using
-Getopt::Long, and I<should> support default configuration in a file
-in a standard format like YAML, JSON, XML, INI, etc. At minimum
-it should include a C<--help> option that explains the other
-options. Supporting all this takes quite a bit of boilerplate code.
-In my experience, doing it right takes several hundred lines of
-code that are practically the same in every script.
-
-C<CLI::Startup> is intended to factor away almost all of that
-boilerplate.  In the common case, all that's needed is a single
-hashref listing the options (using C<Getopt::Long> syntax) as keys,
-and a bit of help text as values. C<CLI::Startup> will automatically
-generate the command-line parsing, reading of an optional config
-file, merging of the two, and creation of a hash of the actual
-settings to be used for the current invocation. It automatically
-prints a usage message when it sees invalid options or the C<--help>
-option. It automatically supports an option to save the current
-settings in an rc file. It supports a C<--version> option that
-prints C<$::VERSION> from the calling script, and a C<--manpage>
-option that prints the formatted POD, if any, in the calling script.
-All the grunt work is handled for you.
-
-C<CLI::Startup> also supports additional options to disable any of
-those options I<except> C<--help>, which is I<always> supported,
-and to specify default options. It slightly enhances C<Getopt::Long>
-behavior by allowing repeatable options to be specified I<either>
-with multiple options I<or> with a commalist honoring CSV quoting
-conventions. It also enhances INI file parsing to support hash-valued
-options of the form:
-
-    [default]
-    hash=a=1, b=2, c=3
-
-For convenience, C<CLI::Support> also supplies C<die()> and C<warn()>
-methods that prepend the name of the script and postpend a newline.
-
-    use CLI::Startup;
-
-    my $app = CLI::Startup->new({
-        'infile=s'   => 'An option for specifying an input file',
-        'outfile=s'  => 'An option for specifying an output file',
-        'password=s' => 'A password to use for something',
-        'email=s@'   => 'Some email addresses to notify of something',
-        'map=s%'     => 'Some name/value pairs mapping something to something',
-        'x|y=i'      => 'Integer --x, could also be called --y',
-        'verbose'    => 'Verbose output flag',
-        'lines:i'    => 'Optional - the number of lines to process',
-        'retries:5'  => 'Optional - number of retries; defaults to 5',
-        ...
-    });
-
-    # Process the command line and resource file (if any)
-    $app->init;
-
-    # Information about the current invocation of the calling
-    # script:
-    my $opts = $app->get_raw_options;       # Actual command-line options
-    my $conf = $app->get_config;            # Options set in config file
-    my $dflt = $app->get_default_settings;  # Wired-in script defaults
-
-    # Get the applicable options for the current invocation of
-    # the script by combining, in order of decreasing precedence:
-    # the actual command-line options; the options set in the
-    # config file; and any wired-in script defaults.
-    my $opts = $app->get_options;
-
-    # Print messages to the user, with helpful formatting
-    $app->die_usage();      # Print a --help message and exit
-    $app->print_manpage();  # Print the formatted POD for this script and exit
-    $app->print_version();  # Print version information for the calling script
-    $app->warn();           # Format warnings nicely
-    $app->die();            # Die with a nicely-formatted message
-
-=head1 EXAMPLES
-
-The following is a complete implementation of a wrapper for C<rsync>.
-Since C<rsync> doesn't support a config file, this wrapper provides
-that feature in 33 lines of code (according to C<sloccount>). Fully
-1/3 of the file is simply a list of the rsync command-line options
-in the definition of C<$optspec>; the rest is just a small amount
-of glue for invoking C<rsync> with the requested options.
-
-  #!/usr/bin/perl
-
-  use File::Rsync;
-  use CLI::Startup;
-  use List::Util qw{ reduce };
-  use Hash::Merge qw{ merge };
-
-  # All the rsync command-line options
-  $optspec = {
-      'archive!'     => 'Use archive mode--see manpage for rsync',
-      ...
-      'verbose+'     => 'Increase rsync verbosity',
-  };
-
-  # Default settings
-  $defaults = {
-      archive  => 1,
-      compress => 1,
-      rsh      => 'ssh',
-  };
-
-  # Parse command line and read config
-  $app = CLI::Startup->new({
-      usage            => '[options] [module ...]',
-      options          => $optspec,
-      default_settings => $defaults,
-  });
-  $app->init;
-
-  # Now @ARGV is a list of INI-file groups: run rsync for
-  # each one in turn.
-  do {
-      # Combine the following, in this order of precedence:
-      # 1) The actual command-line options
-      # 2) The INI-file group requested in $ARGV[0]
-      # 3) The INI-file [default] group
-      # 4) The wired-in app defaults
-
-      $options = reduce { merge($a, $b) } (
-          $app->get_raw_options,
-          $config->{shift @ARGV} || {},
-          $app->get_config->{default},
-          $defaults,
-      );
-
-      my $rsync = File::Rsync->new($options);
-
-      $rsync->exec({
-          src    => delete $options->{src},
-          dest   => delete $options->{dest},
-      }) or $app->warn("Rsync failed for $source -> $dest: $OS_ERROR");
-
-  } while @ARGV;
-
-My personal version of the above script uses strict and warnings,
-and includes a complete manpage in POD. The POD takes up 246 lines,
-while the body of the script contains only 67 lines of code (again
-according to C<sloccount>). In other words, 80% of the script is
-documentation.
-
-C<CLI::Startup> saved a ton of effort writing this, by abstracting
-away the boilerplate code for making the script behave like a normal
-command-line utility. It consists of approximately 425 lines of
-code (C<sloccount> again), so the same script without C<CLI::Startup>
-would have been more than seven times longer, and would either have
-taken many extra hours to write, or else would lack the features
-that this version supports.
-
-=head1 EXPORT
-
-If you really don't like object-oriented coding, or your needs are
-super-simple, C<CLI::Startup> optionally exports a single sub:
-C<startup()>.
-
-=head2 startup
-
-  use CLI::Startup 'startup';
-
-  my $options = startup({
-    'opt1=s' => 'Option taking a string',
-    'opt2:i' => 'Optional option taking an integer',
-    ...
-  });
-
-Process command-line options specified in the argument hash.
-Automatically responds to to the C<--help> option, or to invalid
-options, by printing a help message and exiting. Otherwise returns
-a hash (or hashref, depending on the calling context) of the options
-supplied on the command line. It also automatically checks for
-default options in a resource file named C<$HOME/.SCRIPTNAMErc> and
-folds them into the returned hash.
-
-If you want any fancy configuration, or you want to customize any
-behaviors, then you need to use the object-oriented interface.
-
-=cut
-
+# Simple command-line processing with transparent
+# support for config files.
 sub startup
 {
     my $optspec = shift;
@@ -224,26 +35,18 @@ sub startup
     return $app->get_options;
 }
 
-=head1 ACCESSORS
-
-=head2 get_config
-
-  $config = $app->get_config;
-
-Returns the contents of the resource file as a hashref. This
-attribute is read-only; it is set when the config file is read,
-which happens when C<$app->init()> is called. The referece
-returned by this sub is to a clone of the settings, so although
-its contents can be modified, it will have no effect on the C<$app>
-object.
-
-It is a fatal error to call C<get_config()> before C<init()> is
-called.
-
-=cut
-
+# Attributes of our inside-out objects.
 my %config_of : ATTR();
+my %default_settings_of :ATTR( :get<default_settings> :initarg<default_settings> );
+my %initialized_of :ATTR( :get<initialized> );
+my %options_of :ATTR();
+my %optspec_of : ATTR( :initarg<optspec> );
+my %raw_options_of :ATTR();
+my %rcfile_of : ATTR( :get<rcfile> :initarg<rcfile> );
+my %usage_of : ATTR( :get<usage> :initarg<usage> );
+my %write_rcfile_of : ATTR( :get<write_rcfile> :initarg<write_rcfile> );
 
+# Returns a clone of the config object.
 sub get_config
 {
     my $self = shift;
@@ -252,29 +55,8 @@ sub get_config
     return clone($config_of{ident $self});
 }
 
-=head2 get_default_settings
-
-  $defaults = $app->get_default_settings;
-
-Returns default settings as a hashref. Default settings are applied
-with lower precedence than the rcfile contents, which is in turn
-applied with lower precedence than command-line options.
-
-=cut
-
-my %default_settings_of :ATTR( :get<default_settings> :initarg<default_settings> );
-
-=head2 set_default_settings
-
-  $app->set_default_settings(\%settings);
-
-Set the default settings for the command-line options.
-
-It is a fatal error to call C<set_default_settings()> after
-calling C<init()>.
-
-=cut
-
+# Set defaults for the command-line options. Can be done as much as
+# desired until the app is initialized.
 sub set_default_settings
 {
     my ($self, $settings) = @_;
@@ -289,38 +71,8 @@ sub set_default_settings
     return; # Needed so we don't leak a reference to the data!
 }
 
-=head2 get_initialized
-
-  $app->init unless $app->get_initialized();
-
-Read-only flag indicating whether the app is initialized. This is
-used internally; you probably shouldn't need it since you should
-only be calling C<$app->init()> once, near the start of your script.
-
-=cut
-
-my %initialized_of :ATTR( :get<initialized> );
-
-=head2 get_options
-
-  my $options = $app->get_options;
-
-Read-only: the command options for the current invocation of the
-script. This includes the actual command-line options of the script,
-or the defaults found in the config file, if any, or the wired-in
-defaults from the script itself, in that order of precedence.
-
-Usually, this information is all your script really cares about.
-It doesn't care about C<$app->get_config> or C<$app->get_optspec>
-or any other building blocks that were used to ultimately build
-C<$app->get_options>.
-
-It is a fatal error to call C<get_options()> before calling C<init()>.
-
-=cut 
-
-my %options_of :ATTR();
-
+# Get the options provided on the command line. This, unlike most of
+# the others, can ONLY be called after the app is initialized.
 sub get_options
 {
     my $self = shift;
@@ -329,40 +81,14 @@ sub get_options
     return clone( $options_of{ident $self} );
 }
 
-=head2 get_optspec
-
-  my $optspec = $app->get_optspec();
-
-Returns the hash of command-line options. See C<set_optspec>
-for an example, and see C<Getopt::Long> for the full syntax.
-
-=cut
-
-my %optspec_of : ATTR( :initarg<optspec> );
-
+# Returns the current specifications for the command-line options.
 sub get_optspec
 {
     my $self = shift;
     return clone( $optspec_of{ident $self} );
 }
 
-=head2 set_optspec
-
-  $app->set_optspec({
-    'file=s'  => 'File to read',    # Option with string argument
-    'verbose' => 'Verbose output',  # Boolean option
-    'tries=i' => 'Number of tries', # Option with integer argument
-    ...
-  });
-
-Set the hash of command-line options. The keys use C<Getopt::Long>
-syntax, and the values are descriptions for printing in the usage
-message.
-
-It is an error to call C<set_optspec()> after calling C<init()>.
-
-=cut
-
+# Set the specifications of the current command-line options.
 sub set_optspec
 {
     my $self = shift;
@@ -378,19 +104,7 @@ sub set_optspec
     return; # Needed so we don't leak a reference to the data!
 }
 
-=head2 get_raw_options
-
-  $options = $app->get_raw_options;
-
-Returns the options actually supplied on the command line--i.e.,
-without adding in any defaults from the rcfile. Useful for checking
-which settings were actually requested, in cases where one option
-on the command line disables multiple options from the config file.
-
-=cut
-
-my %raw_options_of :ATTR();
-
+# Returns a clone of the actual command-line options.
 sub get_raw_options
 {
     my $self = shift;
@@ -399,26 +113,7 @@ sub get_raw_options
     return clone( $raw_options_of{ident $self} );
 }
 
-=head2 get_rcfile
-
-  my $path = $app->get_rcfile;
-
-Get the full path of the rcfile to read or write.
-
-=head2 set_rcfile
-
-  $app->set_rcfile( $path_to_rcfile );
-
-Set the path to the rcfile to read or write. This overrides the
-built-in default of C<$HOME/.SCRIPTNAMErc>, but is in turn overridden
-by the C<--rcfile> option supported automatically by C<CLI::Startup>.
-
-It is an error to call C<set_rcfile()> after calling C<init()>.
-
-=cut
-
-my %rcfile_of : ATTR( :get<rcfile> :initarg<rcfile> );
-
+# Set the filename of the rcfile for the app.
 sub set_rcfile
 {
     my ($self, $rcfile) = @_;
@@ -430,27 +125,8 @@ sub set_rcfile
     return;
 }
 
-=head2 get_usage
-
-  print "Usage: $PROGRAM_NAME: " . $app->get_usage . "\n";
-
-Returns the usage string printed as part of the C<--help>
-output. Unlikely to be useful outside the module.
-
-=head2 set_usage
-
-  $app->set_usage("[options] FILE1 [FILE2 ...]");
-
-Set a usage message for the script. Useful if the command options are
-followed by positional parameters; otherwise a default usage message
-is supplied automatically.
-
-It is an error to call C<set_usage()> after calling C<init()>.
-
-=cut
-
-my %usage_of : ATTR( :get<usage> :initarg<usage> );
-
+# Set the usage string for the app. Only needed if there are
+# arguments other than command-line options.
 sub set_usage
 {
     my ($self, $usage) = @_;
@@ -462,22 +138,7 @@ sub set_usage
     return;
 }
 
-=head2 set_write_rcfile
-
-  $app->set_write_rcfile( \&rcfile_writing_sub );
-
-A code reference for writing out the rc file, in case it has
-extra options needed by the app. Setting this to C<undef>
-disables the C<--write-rcfile> command-line option. This option
-is also disabled if I<reading> rc files is disabled by setting
-the C<rcfile> attribute to undef.
-
-It is an error to call C<set_write_rcfile()> after calling C<init()>.
-
-=cut
-
-my %write_rcfile_of : ATTR( :get<write_rcfile> :initarg<write_rcfile> );
-
+# Set a file writer for the rc file.
 sub set_write_rcfile
 {
     my $self   = shift;
@@ -515,19 +176,7 @@ sub set_write_rcfile
     return; # Needed so we don't leak a reference to the data!
 }
 
-=head1 SUBROUTINES/METHODS
-
-=head2 die
-
-  $app->die("die message");
-  # Prints the following, for script "$BINDIR/foo":
-  # foo: FATAL: die message
-
-Die with a nicely-formatted message, identifying the script that
-died.
-
-=cut
-
+# Die with a standardized message format.
 sub die                         ## no critic ( Subroutines::RequireFinalReturn )
 {
     my $self = shift;
@@ -537,15 +186,7 @@ sub die                         ## no critic ( Subroutines::RequireFinalReturn )
     CORE::die "$name: FATAL: $msg\n";
 }
 
-=head2 die_usage
-
-  $app->die_usage if $something_wrong;
-
-Print a help message and exit. This is called internally if the user
-supplies a C<--help> option on the command-line.
-
-=cut
-
+# Die with a usage summary.
 sub die_usage
 {
     my $self    = shift;
@@ -767,20 +408,10 @@ sub _validate_optspec
     return $optspec;
 }
 
-=head2 init
-
-  $app  = CLI::Startup->new( \%optspec );
-  $app->init;
-  $opts = $app->get_options;
-
-Initialize command options by parsing the command line and merging in
-defaults from the rcfile, if any. This is where most of the work gets
-done. If you don't have any special needs, and want to use the Perl
-fourish interface, the C<startup()> function basically does nothing
-more than the example code above.
-
-=cut
-
+# This is the core method of the whole module: it actually does the
+# command-line processing, config-file reading, etc.. Once it
+# completes, most of the write accesors are disabled, and this
+# object becomes a reference for looking up configuration info.
 sub init
 {
     my $self = shift;
@@ -981,37 +612,7 @@ sub _parse_setting
     return \%hash;
 }
 
-=head2 new
-
-  # Normal: accept defaults and specify only options
-  my $app = CLI::Startup->new( \%options );
-
-  # Advanced: override some CLI::Startup defaults
-  my $app = CLI::Startup->new({
-    rcfile       => $rcfile_path, # Set to false to disable rc files
-    write_rcfile => \&write_sub,  # Set to false to disable writing
-    options      => \%options,
-    defaults     => \%defaults,
-  });
-
-Create a new C<CLI::Startup> object to process the options defined
-in C<\%options>. Options not specified on the command line or in a
-config file will be set to the value contained in C<\%defaults>,
-if any.
-
-Setting the C<rcfile> option to a false value disables the C<--rcfile>
-option, which in turn prevents the script from reading config files.
-
-Setting the C<write_rcfile> option to a false value disables writing
-config files with the C<--write-rcfile> option, but does not disable
-reading config files created some other way.
-
-=head2 BUILD
-
-An internal method called by C<new()>.
-
-=cut
-
+# Constructor for this object.
 sub BUILD
 {
     my ($self, $id, $argref) = @_;
@@ -1056,16 +657,7 @@ sub BUILD
     return;
 }
 
-=head2 print_manpage
-
-  $app->print_manpage;
-
-Prints the formatted POD contained in the calling script.
-If there's no POD content in the file, then the C<--help>
-usage is printed instead.
-
-=cut
-
+# Prints out the POD contained in the script file, if any.
 sub print_manpage
 {
     my $self   = shift;
@@ -1078,14 +670,7 @@ sub print_manpage
     exit 0;
 }
 
-=head2 print_version
-
-  $app->print_version;
-
-Prints the version of the calling script, if defined.
-
-=cut
-
+# Prints the version of the script.
 sub print_version
 {
     my $self    = shift;
@@ -1100,17 +685,7 @@ EOF
     exit 0;
 }
 
-=head2 warn
-
-  $app->warn("warning message");
-  # Prints the following, for script "$BINDIR/foo":
-  # foo: WARNING: warning message
-
-Print a nicely-formatted warning message, identifying the script
-by name.
-
-=cut
-
+# Print a nicely-formatted warning message.
 sub warn
 {
     my $self = shift;
@@ -1122,34 +697,21 @@ sub warn
     return;
 }
 
-=head2 write_rcfile
-
-  $app->write_rcfile();      # Overwrite the rc file for this script
-  $app->write_rcfile($path); # Write an rc file to a new location
-
-Write the current settings for this script to an rcfile--by default,
-the rcfile read for this script, but optionally a different file
-specified by the caller. The automatic C<--write-rcfile> option
-always writes to the script specified in the C<--rcfile> option.
-
-It's a fatal error to call C<write_rcfile()> before calling C<init()>.
-
-=cut
-
+# Writes the config file in the specified format.
 sub write_rcfile
 {
     my $self = shift;
+    my $file = shift || $self->get_rcfile;
 
     # It's a fatal error to call write_rcfile() before init()
     $self->die('write_rcfile() called before init()')
         unless $self->get_initialized;
 
+    # If there's no file to write, abort.
+    $self->die('Write rcfile: no file specified') unless $file;
+
     # Check whether a writer has been set
     my $writer = $self->_choose_rcfile_writer;
-
-    # If there's no file to write, abort.
-    my $file = shift || $self->get_rcfile;
-    $self->die('Write rcfile: no file specified') unless $file;
 
     # If there's a writer, call it.
     if ( ref $writer eq 'CODE' )
@@ -1164,21 +726,9 @@ sub write_rcfile
     return;
 }
 
-=head2 get_options_as_defaults
-
-    $options = $app->get_options_as_defaults;
-
-Returns the same hashref as C<$app->get_config> would do, except that
-C<$options->{default}> is overridden with the current settings of the
-app. This is a helper method if you write a function to write config
-files in some format not natively supported by C<CLI::Startup>. It lets
-you freeze the state of the current command line as the default for
-future runs.
-
-This sub will also strip out any of the auto-generated options, like
---help and --rcfile, since they don't belong in a config file.
-
-=cut
+# Returns a hashref that looks like a config file's contents, with
+# the defaults overwritten by the options used for the current
+# invocation of the script.
 sub get_options_as_defaults
 {
     my $self = shift;
@@ -1380,15 +930,549 @@ sub _write_rcfile_perl
     return 1;
 }
 
+1; # End of CLI::Startup
+
+__END__
+=head1 NAME
+
+CLI::Startup - Simple initialization for command-line scripts
+
+=head1 VERSION
+
+Version 0.08
+
+=head1 SYNOPSIS
+
+C<CLI::Startup> can export a single method, C<startup()>, into the
+caller's namespace. It transparently handles config files, defaults,
+and command-line options.
+
+  use CLI::Startup 'startup';
+
+  # Returns the merged results of defaults, config file
+  # and command-line options.
+  my $options = startup({
+    'opt1=s' => 'Option taking a string',
+    'opt2:i' => 'Optional option taking an integer',
+    ...
+  });
+
+It also supports an object-oriented interface with much more scope
+for customization. The basic usage looks like this:
+
+  use CLI::Startup;
+
+  # Parse command line and read config
+  $app = CLI::Startup->new({
+      usage            => '[options] [other args ...]', # Optional
+      options          => $optspec,
+      default_settings => $defaults,
+  });
+  $app->init;
+
+  # Combined command line, config file and default options. Almost
+  # always what you want.
+  $opts = $app->get_options;
+
+  # Information about the current invocation of the calling script:
+  $opts = $app->get_raw_options;       # Actual command-line options
+  $conf = $app->get_config;            # Options set in config file
+  $dflt = $app->get_default_settings;  # Wired-in script defaults
+
+Most scripts can then use C<$opts> for all their customization needs.
+
+=head1 DESCRIPTION
+
+Good command-line scripts always support command-line options using
+Getopt::Long, and I<should> support default configuration in a file
+in a standard format like YAML, JSON, XML, INI, etc. At minimum
+it should include a C<--help> option that explains the other
+options. Supporting all this takes quite a bit of boilerplate code.
+In my experience, doing it right takes several hundred lines of
+code that are practically the same in every script.
+
+C<CLI::Startup> is intended to factor away almost all of that
+boilerplate.  In the common case, all that's needed is a single
+hashref listing the options (using C<Getopt::Long> syntax) as keys,
+and a bit of help text as values. C<CLI::Startup> will automatically
+generate the command-line parsing, reading of an optional config
+file, merging of the two, and creation of a hash of the actual
+settings to be used for the current invocation. It automatically
+prints a usage message when it sees invalid options or the C<--help>
+option. It automatically supports an option to save the current
+settings in an rc file. It supports a C<--version> option that
+prints C<$::VERSION> from the calling script, and a C<--manpage>
+option that prints the formatted POD, if any, in the calling script.
+All the grunt work is handled for you.
+
+C<CLI::Startup> also supports additional options to disable any of
+those options I<except> C<--help>, which is I<always> supported,
+and to specify default options. It slightly enhances C<Getopt::Long>
+behavior by allowing repeatable options to be specified I<either>
+with multiple options I<or> with a commalist honoring CSV quoting
+conventions. It also enhances INI file parsing to support hash-valued
+options of the form:
+
+    [default]
+    hash=a=1, b=2, c=3
+
+For convenience, C<CLI::Support> also supplies C<die()> and C<warn()>
+methods that prepend the name of the script and postpend a newline.
+
+    use CLI::Startup;
+
+    my $app = CLI::Startup->new({
+        'infile=s'   => 'An option for specifying an input file',
+        'outfile=s'  => 'An option for specifying an output file',
+        'password=s' => 'A password to use for something',
+        'email=s@'   => 'Some email addresses to notify of something',
+        'map=s%'     => 'Some name/value pairs mapping something to something',
+        'x|y=i'      => 'Integer --x, could also be called --y',
+        'verbose'    => 'Verbose output flag',
+        'lines:i'    => 'Optional - the number of lines to process',
+        'retries:5'  => 'Optional - number of retries; defaults to 5',
+        ...
+    });
+
+    # Process the command line and resource file (if any)
+    $app->init;
+
+    # Information about the current invocation of the calling
+    # script:
+    my $opts = $app->get_raw_options;       # Actual command-line options
+    my $conf = $app->get_config;            # Options set in config file
+    my $dflt = $app->get_default_settings;  # Wired-in script defaults
+
+    # Get the applicable options for the current invocation of
+    # the script by combining, in order of decreasing precedence:
+    # the actual command-line options; the options set in the
+    # config file; and any wired-in script defaults.
+    my $opts = $app->get_options;
+
+    # Print messages to the user, with helpful formatting
+    $app->die_usage();      # Print a --help message and exit
+    $app->print_manpage();  # Print the formatted POD for this script and exit
+    $app->print_version();  # Print version information for the calling script
+    $app->warn();           # Format warnings nicely
+    $app->die();            # Die with a nicely-formatted message
+
+=head1 EXAMPLES
+
+The following is a complete implementation of a wrapper for C<rsync>.
+Since C<rsync> doesn't support a config file, this wrapper provides
+that feature in 33 lines of code (according to C<sloccount>). Fully
+1/3 of the file is simply a list of the rsync command-line options
+in the definition of C<$optspec>; the rest is just a small amount
+of glue for invoking C<rsync> with the requested options.
+
+  #!/usr/bin/perl
+
+  use File::Rsync;
+  use CLI::Startup;
+  use List::Util qw{ reduce };
+  use Hash::Merge qw{ merge };
+
+  # All the rsync command-line options
+  $optspec = {
+      'archive!'     => 'Use archive mode--see manpage for rsync',
+      ...
+      'verbose+'     => 'Increase rsync verbosity',
+  };
+
+  # Default settings
+  $defaults = {
+      archive  => 1,
+      compress => 1,
+      rsh      => 'ssh',
+  };
+
+  # Parse command line and read config
+  $app = CLI::Startup->new({
+      usage            => '[options] [module ...]',
+      options          => $optspec,
+      default_settings => $defaults,
+  });
+  $app->init;
+
+  # Now @ARGV is a list of INI-file groups: run rsync for
+  # each one in turn.
+  do {
+      # Combine the following, in this order of precedence:
+      # 1) The actual command-line options
+      # 2) The INI-file group requested in $ARGV[0]
+      # 3) The INI-file [default] group
+      # 4) The wired-in app defaults
+
+      $options = reduce { merge($a, $b) } (
+          $app->get_raw_options,
+          $config->{shift @ARGV} || {},
+          $app->get_config->{default},
+          $defaults,
+      );
+
+      my $rsync = File::Rsync->new($options);
+
+      $rsync->exec({
+          src    => delete $options->{src},
+          dest   => delete $options->{dest},
+      }) or $app->warn("Rsync failed for $source -> $dest: $OS_ERROR");
+
+  } while @ARGV;
+
+My personal version of the above script uses strict and warnings,
+and includes a complete manpage in POD. The POD takes up 246 lines,
+while the body of the script contains only 67 lines of code (again
+according to C<sloccount>). In other words, 80% of the script is
+documentation.
+
+C<CLI::Startup> saved a ton of effort writing this, by abstracting
+away the boilerplate code for making the script behave like a normal
+command-line utility. It consists of approximately 425 lines of
+code (C<sloccount> again), so the same script without C<CLI::Startup>
+would have been more than seven times longer, and would either have
+taken many extra hours to write, or else would lack the features
+that this version supports.
+
+=head1 EXPORT
+
+If you really don't like object-oriented coding, or your needs are
+super-simple, C<CLI::Startup> optionally exports a single sub:
+C<startup()>.
+
+=head2 startup
+
+  use CLI::Startup 'startup';
+
+  my $options = startup({
+    'opt1=s' => 'Option taking a string',
+    'opt2:i' => 'Optional option taking an integer',
+    ...
+  });
+
+Process command-line options specified in the argument hashref.
+The argument is passed to C<CLI::Startup->new>, so anything
+valid there is valid here.
+
+Scripts using this function automatically respond to to the C<--help>
+option, or to invalid options, by printing a help message and
+exiting. They can also write a config file and exit, or any of the
+other default features provided by C<CLI::Startup>.
+
+If it doesn't exit, it returns a hash (or hashref, depending on the
+calling context) of the options supplied on the command line. It
+also automatically checks for default options in a resource file
+named C<$HOME/.SCRIPTNAMErc> and folds them into the returned hash.
+
+If you want any fancy configuration, or you want to customize any
+behaviors, then you need to use the object-oriented interface.
+
+=head1 ACCESSORS
+
+The following methods are available when the object-oriented
+interface is used.
+
+=head2 get_config
+
+  $config = $app->get_config;
+
+Returns the contents of the resource file as a hashref. This
+attribute is read-only; it is set when the config file is read,
+which happens when C<$app->init()> is called. The referece
+returned by this sub is to a clone of the settings, so although
+its contents can be modified, it will have no effect on the C<$app>
+object.
+
+It is a fatal error to call C<get_config()> before C<init()> is
+called.
+
+=head2 get_default_settings
+
+  $defaults = $app->get_default_settings;
+
+Returns default settings as a hashref. Default settings are applied
+with lower precedence than the rcfile contents, which is in turn
+applied with lower precedence than command-line options.
+
+=head2 set_default_settings
+
+  $app->set_default_settings(\%settings);
+
+Set the default settings for the command-line options.
+
+It is a fatal error to call C<set_default_settings()> after
+calling C<init()>.
+
+=head2 get_initialized
+
+  $app->init unless $app->get_initialized();
+
+Read-only flag indicating whether the app is initialized. This is
+used internally; you probably shouldn't need it since you should
+only be calling C<$app->init()> once, near the start of your script.
+
+=head2 get_options
+
+  my $options = $app->get_options;
+
+Read-only: the command options for the current invocation of the
+script. This includes the actual command-line options of the script,
+or the defaults found in the config file, if any, or the wired-in
+defaults from the script itself, in that order of precedence.
+
+Usually, this information is all your script really cares about.
+It doesn't care about C<$app->get_config> or C<$app->get_optspec>
+or any other building blocks that were used to ultimately build
+C<$app->get_options>.
+
+It is a fatal error to call C<get_options()> before calling C<init()>.
+
+=head2 get_optspec
+
+  my $optspec = $app->get_optspec();
+
+Returns the hash of command-line options. Keys are option specifications
+in the C<Getopt::Long> syntax, and values are the short descriptions
+to be printed in a usage summary. See C<set_optspec> for an example,
+and see C<Getopt::Long> for the full syntax.
+
+=head2 set_optspec
+
+  $app->set_optspec({
+    'file=s'  => 'File to read',    # Option with string argument
+    'verbose' => 'Verbose output',  # Boolean option
+    'tries=i' => 'Number of tries', # Option with integer argument
+    ...
+  });
+
+Set the hash of command-line options. The keys use C<Getopt::Long>
+syntax, and the values are descriptions for printing in the usage
+message.
+
+It is a fatal error to call C<set_optspec()> after calling C<init()>.
+
+=head2 get_raw_options
+
+  $options = $app->get_raw_options;
+
+Returns the options actually supplied on the command line--i.e.,
+without adding in any defaults from the rcfile. Useful for checking
+which settings were actually requested, in cases where one option
+on the command line disables multiple options from the config file.
+
+=head2 get_rcfile
+
+  my $path = $app->get_rcfile;
+
+Get the full path of the rcfile to read or write.
+
+=head2 set_rcfile
+
+  $app->set_rcfile( $path_to_rcfile );
+
+Set the path to the rcfile to read or write. This overrides the
+built-in default of C<$HOME/.SCRIPTNAMErc>, but is in turn overridden
+by the C<--rcfile> option supported automatically by C<CLI::Startup>.
+
+It is a fatal error to call C<set_rcfile()> after calling C<init()>.
+
+=head2 get_usage
+
+  print "Usage: $0: " . $app->get_usage . "\n";
+
+Returns the usage string printed as part of the C<--help> output.
+Unlikely to be useful outside the module.
+
+=head2 set_usage
+
+  $app->set_usage("[options] FILE1 [FILE2 ...]");
+
+Set a usage string for the script. Useful if the command options
+are followed by positional parameters; otherwise a default usage
+message is supplied automatically.
+
+It is a fatal error to call C<set_usage()> after calling C<init()>.
+
+=head2 set_write_rcfile
+
+  $app->set_write_rcfile( \&rcfile_writing_sub );
+
+  sub rcfile_writing_sub
+  {
+      ($app, $filename) = @_;
+      $config_data      = $app->get_options_as_defaults;
+
+      # Do stuff with $config_data, and write it to
+      # $filename in the desired format.
+  }
+
+A code reference for writing out the rc file, in case the default
+file formats aren't good enough. Setting this to C<undef> disables
+the command-line options C<--write-rcfile> and C<--rcfile-format>.
+Those options are also disabled if I<reading> rc files is disabled
+by setting the C<rcfile> attribute to anything that evaluates to
+false.
+
+For now, your writer will have to write in one of the formats
+supported by C<CLI::Startup>, so this feature is mostly useful
+for providing prettier output, with things like nice formatting
+and helpful explanatory comments.
+
+It is a fatal error to call C<set_write_rcfile()> after calling
+C<init()>.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 new
+
+  # Normal: accept defaults and specify only options
+  my $app = CLI::Startup->new( \%options );
+
+  # Advanced: override some CLI::Startup defaults
+  my $app = CLI::Startup->new({
+    rcfile       => $rcfile_path, # Set to false to disable rc files
+    write_rcfile => \&write_sub,  # Set to false to disable writing
+    options      => \%options,
+    defaults     => \%defaults,
+  });
+
+Create a new C<CLI::Startup> object to process the options defined
+in C<\%options>. Options not specified on the command line or in a
+config file will be set to the value contained in C<\%defaults>,
+if any.
+
+Setting the C<rcfile> option to a false value disables the C<--rcfile>
+option, which in turn prevents the script from reading config files.
+
+Setting the C<write_rcfile> option to a false value disables writing
+config files with the C<--write-rcfile> option, but does not disable
+reading config files created some other way.
+
+=head2 BUILD
+
+An internal method called by C<new()>.
+
+=head2 init
+
+  $app  = CLI::Startup->new( \%optspec );
+  $app->init;
+  $opts = $app->get_options;
+
+Initialize command options by parsing the command line and merging
+in defaults from the rcfile, if any. This is where most of the work
+gets done. If you don't have any special needs, and want to use the
+Perl fourish interface, the C<startup()> function basically does
+nothing more than the example code above.
+
+After C<init()> is called, most of the write accessors will throw
+a fatal exception. It's not quite true that this object becomes
+read-only, but you can think of it that way: the object has done
+its heavy lifting, and now exists mostly to answer questions about
+the app's configuration.
+
+=head2 warn
+
+  $app->warn("warning message");
+  # Prints the following, for script "$BINDIR/foo":
+  # foo: WARNING: warning message
+
+Print a nicely-formatted warning message, identifying the script
+by name. Identical to calling C<CORE::warn>, except for the formatting.
+
+=head2 die
+
+  $app->die("die message");
+  # Prints the following, for script "$BINDIR/foo":
+  # foo: FATAL: die message
+
+Die with a nicely-formatted message, identifying the script that
+died. This is exactly the same as calling C<CORE::die>, except
+for the standardized formatting of the message. It also suppresses
+any backtrace, by postpending a newline to your message.
+
+=head2 die_usage
+
+  $app->die_usage if $something_wrong;
+
+Print a help message and exit. This is called internally if the
+user supplies a C<--help> option on the command-line.
+
+=head2 print_manpage
+
+  $app->print_manpage;
+
+Prints the formatted POD contained in the calling script.
+If there's no POD content in the file, then the C<--help>
+usage is printed instead.
+
+=head2 print_version
+
+  $app->print_version;
+
+Prints the version of the calling script, if the variable C<$VERSION> is
+defined in the top-level scope.
+
+=head2 write_rcfile
+
+  $app->write_rcfile();      # Overwrite the rc file for this script
+  $app->write_rcfile($path); # Write an rc file to a new location
+
+Write the current settings for this script to an rcfile--by default,
+the rcfile read for this script, but optionally a different file
+specified by the caller. The automatic C<--write-rcfile> option
+always writes to the script specified in the C<--rcfile> option.
+
+The file format can be specified by the C<--rcfile-format> option,
+and must be one of: ini, yaml, json, xml, and perl. By default this
+method will attempt to use .ini file format, because it's the
+simplest and most readable for most option specification needs. If
+the module C<Config::INI::Writer> isn't installed, it will fall back
+on perl format, which looks like the output of C<Data::Dumper>.
+
+The prettiest formats are ini, yaml, and perl. The others will tend
+to be harder to read.
+
+The simplest format for users is ini. It's good enough, if you
+don't have complicated command-line options, or additional data
+hidden in your config files.
+
+The most powerful formats are json and yaml, of which yaml is the
+most readable. It will let you put pretty much any data structure
+you desire in your config files.
+
+It's a fatal error to call C<write_rcfile()> before calling C<init()>.
+
+=head2 get_options_as_defaults
+
+    $options = $app->get_options_as_defaults;
+
+Returns the same hashref as C<$app->get_config> would do, except
+that C<$options->{default}> is overridden with the current settings
+of the app. This is a helper method if you write a function to write
+config files in some format not natively supported by C<CLI::Startup>.
+It lets you freeze the state of the current command line as the
+default for future runs.
+
+This sub will also strip out any of the auto-generated options, like
+C<--help> and C<--rcfile>, since they don't belong in a config file.
+
 =head1 AUTHOR
 
 Len Budney, C<< <len.budney at gmail.com> >>
 
-=head1 BUGS
+=head1 BUGS AND LIMITATIONS
 
-Please report any bugs or feature requests to C<bug-cli-startup at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CLI-Startup>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+C<CLI::Startup> tries reasonably to keep things consistent, but it
+doesn't stop you from shooting yourself in the foot if you try at
+all hard. For example, it doesn't confirm that your default options
+actually correspond to your option specifications: it will ignore
+defaults for nonexistent options, and cheerfully let you assign a
+hashref as the default value of a boolean option, etc.
+
+Please report any bugs or feature requests to C<bug-cli-startup at
+rt.cpan.org>, or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=CLI-Startup>.  I
+will be notified, and then you'll automatically be notified of
+progress on your bug as I make changes.
 
 
 =head1 SUPPORT
@@ -1433,7 +1517,3 @@ by the Free Software Foundation; or the Artistic License.
 
 See http://dev.perl.org/licenses/ for more information.
 
-
-=cut
-
-1; # End of CLI::Startup
