@@ -521,6 +521,22 @@ sub _read_config_file
     # Attempt to parse the file, if any
     if ( $rcfile && -r $rcfile )
     {
+        # Defend against badly configured parsers. I'm looking
+        # at YOU, XML::SAX!
+        local $SIG{__WARN__} = sub {
+            my @args = @_;
+
+            for my $arg (@args)
+            {
+                next if ref $arg;
+                return if $arg =~ /Unable to recognise encoding/;
+                return if $arg =~ /ParserDetails\.ini/;
+            }
+
+            CORE::warn(@args);
+        };
+
+        # OK, NOW load the files.
         my $files   = Config::Any->load_files( $options );
         $files      = shift @{$files} || {};
         $raw_config = $files->{$rcfile} || {};
