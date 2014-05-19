@@ -21,7 +21,7 @@ use List::Util qw{ max reduce };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -939,7 +939,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.08
+Version 0.09
 
 =head1 SYNOPSIS
 
