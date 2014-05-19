@@ -981,6 +981,12 @@ for customization. The basic usage looks like this:
 
 Most scripts can then use C<$opts> for all their customization needs.
 
+You can also hide extra data in the config file, and access it
+through C<$app->get_config>. The app settings will be stored in
+a section of the config file named "default," so the rest of the
+file is yours to do with as you wish. See the example implemetation
+of an C<rsync> wrapper, below, for one use of this.
+
 =head1 DESCRIPTION
 
 Good command-line scripts always support command-line options using
@@ -1005,13 +1011,18 @@ prints C<$::VERSION> from the calling script, and a C<--manpage>
 option that prints the formatted POD, if any, in the calling script.
 All the grunt work is handled for you.
 
-C<CLI::Startup> also supports additional options to disable any of
-those options I<except> C<--help>, which is I<always> supported,
-and to specify default options. It slightly enhances C<Getopt::Long>
-behavior by allowing repeatable options to be specified I<either>
-with multiple options I<or> with a commalist honoring CSV quoting
-conventions. It also enhances INI file parsing to support hash-valued
-options of the form:
+Any of these auto-generated options, except C<--help>, can be
+disabled by including the option's name in the hashref with
+a false value in place of the help text.
+
+An additional hashref can be passed with default values for the
+various options.
+
+C<CLI::Startup> slightly enhances C<Getopt::Long> behavior by
+allowing repeatable options to be specified I<either> with multiple
+options I<or> with a commalist honoring CSV quoting conventions.
+It also enhances INI file parsing to support hash-valued options
+of the form:
 
     [default]
     hash=a=1, b=2, c=3
