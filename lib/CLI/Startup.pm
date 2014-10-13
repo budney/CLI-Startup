@@ -691,6 +691,13 @@ sub BUILD
     return;
 }
 
+# Destructor. Nothing much to do, but without it we get
+# a warning about CLI::Startup::DEMOLISH only being used
+# once by Class::Std.
+sub DEMOLISH
+{
+}
+
 # Prints out the POD contained in the script file, if any.
 sub print_manpage
 {
@@ -1395,6 +1402,10 @@ reading config files created some other way.
 =head2 BUILD
 
 An internal method called by C<new()>.
+
+=head2 DEMOLISH
+
+An internal method, called when an object goes out of scope.
 
 =head2 init
 
