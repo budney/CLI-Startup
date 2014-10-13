@@ -16,7 +16,7 @@ use File::Basename;
 use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
-use Getopt::Long qw{ :config posix_default gnu_compat pass_through bundling };
+use Getopt::Long qw{ :config posix_default gnu_compat bundling };
 
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
@@ -749,7 +749,7 @@ sub write_rcfile
         unless $self->get_initialized;
 
     # If there's no file to write, abort.
-    $self->die('Write rcfile: no file specified') unless $file;
+    $self->die("can't write rcfile: no file specified") unless $file;
 
     # Check whether a writer has been set
     my $writer = $self->_choose_rcfile_writer;
@@ -1142,10 +1142,10 @@ confusion, like so:
   foo --bar baz=1,qux=2
 
 Also note that C<Getopt::Long> is configured with the settings
-C<posix_default>, C<gnu_compat>, C<pass_through>, and C<bundling>.
-That means most confusing options are turned off, like specifying
-options first, and their arguments in a big list at the end, or
-other things that you hopefully don't want to do anyway. Specifically,
+C<posix_default>, C<gnu_compat>, and C<bundling>.  That means most
+confusing options are turned off, like specifying options first,
+and their arguments in a big list at the end, or other things that
+you hopefully don't want to do anyway. Specifically,
 
 =over
 
