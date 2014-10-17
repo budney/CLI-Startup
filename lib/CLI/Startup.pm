@@ -1584,10 +1584,15 @@ Len Budney, C<< <len.budney at gmail.com> >>
 
 C<CLI::Startup> tries reasonably to keep things consistent, but it
 doesn't stop you from shooting yourself in the foot if you try at
-all hard. For example, it doesn't confirm that your default options
-actually correspond to your option specifications: it will ignore
-defaults for nonexistent options, and cheerfully let you assign a
-hashref as the default value of a boolean option, etc.
+all hard. For example: it will let you specify defaults for
+nonexistent options; it will let you use a hashref as the default
+value for a boolean option; etc..
+
+For now, you should also not define aliases for default options.
+If you try to define an option like 'help|?', expecting to get
+C<--help> and C<--?> as synonyms, something will break. Basically,
+C<CLI::Startup> isn't quite smart enough to recognize that your
+help option is a suitable replacement for the builtin one.
 
 Please report any bugs or feature requests to C<bug-cli-startup at
 rt.cpan.org>, or through the web interface at
