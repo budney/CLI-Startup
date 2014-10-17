@@ -21,7 +21,7 @@ use Getopt::Long qw{ :config posix_default gnu_compat bundling };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.15'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.16'; # Don't forget to update the manpage version, too!
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -244,7 +244,7 @@ sub die_usage
 sub _get_default_optspec
 {
     return {
-        'help|?'          => 'Print this helpful help message',
+        'help'            => 'Print this helpful help message',
         'rcfile=s'        => 'Config file to load',
         'write-rcfile'    => 'Write current options to rcfile',
         'rcfile-format=s' => 'Format to write the rcfile',
@@ -980,7 +980,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.15
+Version 0.16
 
 =head1 SYNOPSIS
 
