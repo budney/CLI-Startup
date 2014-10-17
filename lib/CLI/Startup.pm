@@ -529,7 +529,7 @@ sub _read_config_file
             for my $arg (@args)
             {
                 next if ref $arg;
-                return if $arg =~ /Unable to recognise encoding/xms;
+                return if $arg =~ /Unable to recognise encoding/ms;
                 return if $arg =~ /ParserDetails[.]ini/xms;
             }
 
