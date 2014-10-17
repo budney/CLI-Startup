@@ -764,7 +764,7 @@ sub write_rcfile
         $self->die('write_rcfile() disabled, but called anyway');
     }
 
-    return;
+    exit 0;
 }
 
 # Returns a hashref that looks like a config file's contents, with
