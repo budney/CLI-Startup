@@ -221,6 +221,13 @@ sub _usage_message
     # Note the length of the longest option
     my $length  = max map { length() } keys %options;
 
+    # Print the requested message, if any
+    if (defined $msg)
+    {
+        ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
+        $message .= sprintf '%s: FATAL: %s\n', $name, $msg;
+    }
+
     # Now print the help message.
     $message .= 'usage: ' . basename($PROGRAM_NAME) . ' ' . $self->get_usage . "\n";
     $message .= "Options:\n";
@@ -1538,9 +1545,14 @@ any backtrace, by postpending a newline to your message.
 =head2 die_usage
 
   $app->die_usage if $something_wrong;
+  $app->die_usage($message);
 
 Print a help message and exit. This is called internally if the
-user supplies a C<--help> option on the command-line.
+user supplies a C<--help> option on the command-line. If the
+optional C<$message> is specified, then precedes the usage
+message with something like:
+
+  program_name: FATAL: $message
 
 =head2 print_manpage
 
