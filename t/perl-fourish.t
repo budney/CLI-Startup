@@ -52,7 +52,7 @@ our $VERSION = 3.1415;
     trap { startup({ bar => 'bar option' }) };
 
     ok $trap->exit == 1, "Error status on invalid option";
-    like $trap->stdout, qr/usage:/, "Usage message printed";
+    like $trap->stderr, qr/usage:/, "Usage message printed";
 }
 
 # --help option automatically causes usage message
@@ -60,7 +60,7 @@ our $VERSION = 3.1415;
     local @ARGV = ('--help');
     trap { startup({ foo => 'foo option' }) };
 
-    ok $trap->exit == 1, "Correct exit status on --help option";
+    ok $trap->exit == 0, "Correct exit status on --help option";
     like $trap->stdout, qr/usage:/, "Regular usage message printed";
 }
 
@@ -69,7 +69,7 @@ our $VERSION = 3.1415;
     local @ARGV = ('--help');
     trap { startup({ help => 'custom help', foo => 'bar' })};
 
-    ok $trap->exit == 1, "Correct exit status on --help";
+    ok $trap->exit == 0, "Correct exit status on --help";
     like $trap->stdout, qr/custom help/, "Custom help message printed";
 }
 
@@ -79,7 +79,7 @@ our $VERSION = 3.1415;
     trap { startup({ 'help' => 0, foo => 'bar' })};
 
     like $trap->stdout, qr/usage:/, "Can't disable --help option";
-    ok $trap->exit == 1, "...and the exit status is correct";
+    ok $trap->exit == 0, "...and the exit status is correct";
 }
 
 # --rcfile option with rcfile disabled
@@ -88,7 +88,7 @@ our $VERSION = 3.1415;
     trap { startup({ rcfile => undef, foo => 'bar' })};
 
     ok $trap->exit == 1, "Error status with disabled --rcfile";
-    like $trap->stdout, qr/usage:/, "Usage message printed";
+    like $trap->stderr, qr/usage:/, "Usage message printed";
 }
 
 # --write-rcfile option with rcfile diabled
@@ -97,9 +97,9 @@ our $VERSION = 3.1415;
     trap { startup({ 'write-rcfile' => undef, foo => 'bar' }) };
 
     ok $trap->exit == 1, "Error status with disabled --write-rcfile";
-    like $trap->stdout, qr/usage:/, "Usage message printed";
-    like $trap->stdout, qr/rcfile/, "--rcfile shown in help";
-    unlike $trap->stdout, qr/write-rcfile.*Write options/,
+    like $trap->stderr, qr/usage:/, "Usage message printed";
+    like $trap->stderr, qr/rcfile/, "--rcfile shown in help";
+    unlike $trap->stderr, qr/write-rcfile.*Write options/,
         "--write-rcfile not shown";
 }
 
@@ -127,7 +127,7 @@ our $VERSION = 3.1415;
     local @ARGV = ('--help');
     trap { startup({ 'x!' => 'negatable option' }) };
 
-    ok $trap->exit == 1, "Exit status";
+    ok $trap->exit == 0, "Normal exit status";
     like $trap->stdout, qr/Negate this with --no-x/, "Help text";
 }
 
@@ -136,7 +136,7 @@ our $VERSION = 3.1415;
     local @ARGV = ('--help');
     trap { startup({ 'x|a|b|c' => 'aliased option' }) };
 
-    ok $trap->exit == 1, "Exit status";
+    ok $trap->exit == 0, "Exit status";
     like $trap->stdout, qr/Aliases: a, b, c/, "Help text";
 }
 

@@ -189,12 +189,27 @@ sub die                         ## no critic ( Subroutines::RequireFinalReturn )
 # Die with a usage summary.
 sub die_usage
 {
+    my $self = shift;
+    my $msg  = shift;
+
+    print {\*STDERR} $self->_usage_message($msg);
+    exit 1;
+}
+
+# Return a usage message
+sub _usage_message
+{
     my $self    = shift;
+    my $msg     = shift;
     my $optspec = $self->get_optspec;
+    my $name    = basename($PROGRAM_NAME);
+
+    # The message to be returned
+    my $message = '';
 
     # This happens if options aren't defined in the constructor
     # and then die_usage() is called directly or indirectly.
-    $self->die('die_usage() called without defining any options')
+    $self->die('_usage_message() called without defining any options')
         unless keys %{$optspec};
 
     # In the usage text, show the option names, not the aliases.
@@ -207,8 +222,8 @@ sub die_usage
     my $length  = max map { length() } keys %options;
 
     # Now print the help message.
-    print 'usage: ' . basename($PROGRAM_NAME) . ' ' . $self->get_usage . "\n";
-    print "Options:\n";
+    $message .= 'usage: ' . basename($PROGRAM_NAME) . ' ' . $self->get_usage . "\n";
+    $message .= "Options:\n";
 
     # Print the options, sorted in dictionary order.
     for my $option (sort keys %options)
@@ -218,7 +233,7 @@ sub die_usage
         my $spec   = $options{$option};
 
         # Print the basic help option
-        printf "    %-${length}s - %s\n", $option, $spec->{desc};
+        $message .= sprintf "    %-${length}s - %s\n", $option, $spec->{desc};
 
         # Print aliases, if any
         if (@{ $spec->{names} } > 1)
@@ -226,17 +241,17 @@ sub die_usage
             my @aliases = @{ $spec->{names} };
             shift @aliases;
 
-            printf "%${indent}s Aliases: %s\n", '', join(', ', @aliases);
+            $message .= sprintf "%${indent}s Aliases: %s\n", '', join(', ', @aliases);
         }
 
         # Print negation, if any
         if ($spec->{bool})
         {
-            printf "%${indent}s Negate this with --no-%s\n", '', $option;
+            $message .= sprintf "%${indent}s Negate this with --no-%s\n", '', $option;
         }
     }
 
-    exit 1;
+    return $message;
 }
 
 # Returns the "default" optspec, consisting of options
@@ -469,7 +484,16 @@ sub _process_command_line
 
     # Parse the command line and die if anything is wrong.
     my $opts_ok = GetOptions( \%options, keys %{$optspec} );
-    $self->die_usage if $options{help} || !$opts_ok ;
+
+    if ($options{help})
+    {
+        print $self->_usage_message();
+        exit 0;
+    }
+    elsif ( !$opts_ok )
+    {
+        $self->die_usage();
+    }
 
     # Treat array and hash options as CSV records, so we can
     # cope with quoting and values containing commas.
@@ -704,9 +728,10 @@ sub print_manpage
     my $self   = shift;
     my $parser = Pod::Text->new;
 
+    # Print SOMETHING...
     $parser->output_fh(*STDOUT);
     $parser->parse_file($PROGRAM_NAME);
-    $self->die_usage unless $parser->content_seen;
+    print $self->_usage_message() unless $parser->content_seen;
 
     exit 0;
 }

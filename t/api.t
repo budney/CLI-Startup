@@ -56,8 +56,8 @@ lives_ok { $app->init } "init() lives the first time";
 # Now that options were set, die_usage() should succeed--which means
 # that it should die with a usage message.
 trap { $app->die_usage };
-like $trap->stdout, qr/usage:/, "die_usage() succeeds";
-ok $trap->stderr eq '', "Nothing printed to stderr";
+like $trap->stderr, qr/usage:/, "die_usage() succeeds";
+ok $trap->stdout eq '', "Nothing printed to stdout";
 ok $trap->exit == 1, "Correct exit status";
 
 # Some calls aren't allowed /after/ init
