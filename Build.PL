@@ -36,16 +36,21 @@ my $builder = $class->new(
     dist_version_from   => 'lib/CLI/Startup.pm',
 
     requires => {
-        perl              => '5.8.8',
+        'perl'            => '5.8.8',
         'Class::Std'      => '0.01',
         'Clone'           => 0,
         'Config::Any'     => 0,
+        'Data::Dumper'    => 0,
+        'English'         => 0,
+        'Exporter'        => 0,
         'File::Basename'  => 0,
+        'File::Copy'      => 0,
         'File::HomeDir'   => '0.97',
         'Getopt::Long'    => '2.38',
         'Hash::Merge'     => 0,
         'List::Util'      => 0,
         'Pod::Text'       => '3.01',
+        'Symbol'          => 0,
         'Text::CSV'       => 0,
     },
 
@@ -58,9 +63,15 @@ my $builder = $class->new(
     },
 
     build_requires => {
+        'Cwd'             => 0,
         'Test::More'      => 0,
         'Test::Trap'      => 0,
         'Test::Exception' => 0,
+
+        # Shut up Test::Prereq
+        'base'            => 0,
+        'strict'          => 0,
+        'warnings'        => 0,
     },
 
     configure_requires => {

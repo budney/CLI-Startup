@@ -515,7 +515,10 @@ sub _process_command_line
             for my $value (@{$options{$option}})
             {
                 $csv->parse($value)
-                    or $self->die("Can't parse --$option option: $value");
+                    or $self->die_usage(
+                        "Can't parse --$option option \"$value\": "
+                        . $csv->error_diag()
+                    );
                 push @values, $csv->fields;
             }
 

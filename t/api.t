@@ -60,6 +60,14 @@ like $trap->stderr, qr/usage:/, "die_usage() succeeds";
 ok $trap->stdout eq '', "Nothing printed to stdout";
 ok $trap->exit == 1, "Correct exit status";
 
+# Caling die_usage() with a message should cause it
+# to be printed.
+trap { $app->die_usage("rutabaga") };
+like $trap->stderr, qr/usage:/, "die_usage() succeeds";
+like $trap->stderr, qr/rutabaga/, "die_usage() message is printed";
+ok $trap->stdout eq '', "Nothing printed to stdout";
+ok $trap->exit == 1, "Correct exit status";
+
 # Some calls aren't allowed /after/ init
 my $die = "dies after init()";
 my $err = qr/after init/;

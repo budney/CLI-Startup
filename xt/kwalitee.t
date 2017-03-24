@@ -1,6 +1,8 @@
 use strict;
 use warnings;
 
+BEGIN: { $ENV{AUTHOR_TESTING} = 1 }
+
 use Test::More;
 
 eval { require Test::Kwalitee; };

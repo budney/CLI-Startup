@@ -17,6 +17,15 @@ no warnings 'qw';
         "Listy options";
 }
 
+# Invalid list-y options should fail
+{
+    local @ARGV = ( "--x=b,\0", "--x=a" );
+    trap { startup({ 'x=s@' => 'listy x option' }) };
+    like $trap->stderr, qr/FATAL.*Can't parse/, "Parse dies on invalid CSV";
+    ok $trap->stdout eq '', "Nothing printed to stdout";
+    ok $trap->exit == 1, "Correct exit status";
+}
+
 # Test hash-y options
 {
     local @ARGV = qw/ --x=a=1 --x b=2 --x c=3=2+1 /;
