@@ -33,13 +33,6 @@ no warnings 'qw';
     ok $options->{x} == 10, "Incremental options";
 }
 
-# Incrementable integer options
-{
-    local @ARGV = ( '--x=10', ('--x')x10 );
-    my $options = startup({ 'x:+' => 'incrementable x option' });
-    ok $options->{x} == 20, "Incrementable options";
-}
-
 # Negatable options
 {
     local @ARGV = ( '--no-x' );
