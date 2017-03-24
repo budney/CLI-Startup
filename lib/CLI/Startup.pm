@@ -21,7 +21,7 @@ use Getopt::Long qw{ :config posix_default gnu_compat bundling };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.16'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.17'; # Don't forget to update the manpage version, too!
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -1015,7 +1015,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.16
+Version 0.17
 
 =head1 SYNOPSIS
 
