@@ -270,7 +270,6 @@ sub _get_default_optspec
         'rcfile=s'        => 'Config file to load',
         'write-rcfile'    => 'Write current options to rcfile',
         'rcfile-format=s' => 'Format to write the rcfile',
-        'verbose|v'       => 'Print verbose output',
         'version|V'       => 'Print version information and exit',
         'manpage|H'       => 'Print the manpage for this script',
     };
