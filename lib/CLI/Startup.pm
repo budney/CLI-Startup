@@ -21,7 +21,7 @@ use Getopt::Long qw{ :config posix_default gnu_compat bundling };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.17'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.18'; # Don't forget to update the manpage version, too!
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -318,6 +318,8 @@ sub _parse_spec
 {
     my ($self, $spec, $help_text) = @_;
 
+    ## no critic ( Perl::Critic::Policy::RegularExpressions::ProhibitComplexRegexes )
+
     # We really want the "name(s)" portion
     my ( $specification, $boolean, $incremental, $type, $cardinality, $unmatched ) =
         $spec =~ m{
@@ -332,9 +334,9 @@ sub _parse_spec
             (?(DEFINE)
                 (?<aliases>     (?: ^ (?&identifier) (?: (?&separator) (?&identifier) )* ) )
                 (?<identifier>  [\w-]+ )
-                (?<separator>   \|     )
-                (?<negatable>   \! $   )
-                (?<incremental> \+ $   )
+                (?<separator>   [|]    )
+                (?<negatable>   [!] $   )
+                (?<incremental> [+] $   )
                 (?<specifier>   (?: (?&optional) (?&type) ) )
                 (?<type>        [fis]  )
                 (?<optional>    [:=]   )
@@ -347,6 +349,7 @@ sub _parse_spec
     $self->die("Invalid optspec: $spec") if $unmatched;
 
     ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
+    ## no critic ( Perl::Critic::Policy::ValuesAndExpressions::ProhibitMagicNumbers )
 
     # Note: doesn't identify string, int, float options
     return {
@@ -392,6 +395,7 @@ sub _option_aliases
 # added in.
 sub _validate_optspec
 {
+    # no critic ( Perl::Critic::Policy::Modules::ProhibitExcessMainComplexity )
     my ( $self, $user_optspecs ) = @_;
     my $default_optspecs         = $self->_get_default_optspec();
 
@@ -1115,7 +1119,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.17
+Version 0.18
 
 =head1 SYNOPSIS
 
