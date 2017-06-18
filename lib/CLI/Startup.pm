@@ -16,7 +16,7 @@ use File::Basename;
 use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
-use Getopt::Long qw{ :config posix_default bundling require_order };
+use Getopt::Long qw{ :config posix_default bundling require_order no_ignore_case };
 
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
