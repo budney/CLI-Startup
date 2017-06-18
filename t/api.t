@@ -5,6 +5,7 @@ use Test::Trap;
 use Test::Exception;
 
 use CLI::Startup;
+use Data::Dumper;
 
 my $app = CLI::Startup->new;
 
@@ -48,7 +49,7 @@ lives_ok { $app->set_write_rcfile(sub{})   } "set_write_rcfile(sub{}) lives";
 
 # This call should live, but the "help" option should be overridden
 lives_ok { $app->set_optspec({foo=>'bar', help=>0}) } "set_optspec() lives";
-like $app->get_optspec->{help}, qr/help message/, "Could not delete --help option";
+like Dumper($app->get_optspec), qr/help message/, "Could not delete --help option";
 
 # Now call init()
 lives_ok { $app->init } "init() lives the first time";
