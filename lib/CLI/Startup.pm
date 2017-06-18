@@ -417,7 +417,8 @@ sub _validate_optspec
 
     my $user_option_aliases  = {};
 
-    # Step through each user option.
+    # Step through each user option. Check for collissions, and also delete
+    # any default options for which this was requested.
     for my $optspec (keys %{$parsed_user_options})
     {
         # Step through each alias
@@ -429,42 +430,25 @@ sub _validate_optspec
 
             # Remember where this alias came from
             $user_option_aliases->{$alias} = $optspec;
+
+            # Check if this alias collides with a default option,
+            # and the value in the user optspec is false.
+            next if $user_optspecs->{$optspec} || 0;
+            next unless defined $default_option_aliases->{$alias};
+
+            # Delete all default options corresponding to this
+            # aliase.
+            my $default_optspec = $default_option_aliases->{$alias};
+            for my $name (@{$parsed_default_options->{$default_optspec}{names}})
+            {
+                delete $default_option_aliases->{$alias};
+            }
+            delete $parsed_default_options->{$default_optspec};
         }
     }
 
-    # Now step through the user specs a second time, looking for
-    # any aliases that override default aliases.
-    for my $name (keys %{$user_option_aliases})
-    {
-        next unless defined $default_option_aliases->{$name};
-
-        my $default_optspec = $default_option_aliases->{$name};
-        my $default_aliases = $parsed_default_options->{$default_optspec}{names};
-        my $primary_alias   = $default_aliases->[0];
-
-        # There's a collision. Make sure that all synonyms of the
-        # default alias are either absent from the user options, or
-        # else are synonyms of $name.
-        for my $alias (@$default_aliases)
-        {
-            next unless defined $user_option_aliases->{$alias};
-            next if $user_option_aliases->{$alias} eq $user_option_aliases->{$name};
-
-            $self->die("Incompatible definitions for --$name and --$alias options");
-        }
-
-        # The override is OK, so go ahead and delete the default option in favor of
-        # the user's version.
-        for my $alias (@{$parsed_default_options->{$default_optspec}{names}})
-        {
-            delete $default_option_aliases->{$alias};
-        }
-        delete $parsed_default_options->{$default_optspec};
-    }
-
-    # Remove any other disabled options. Options are disabled by
-    # setting them to anything that evaluates to false. We made
-    # sure it was defined in the call to _parse_spec() above.
+    # Remove any disabled user options. Options are disabled by
+    # setting them to anything that evaluates to false.
     for my $optspec (keys %{$parsed_user_options})
     {
         next if $parsed_user_options->{$optspec}{desc} || 0;
@@ -474,6 +458,16 @@ sub _validate_optspec
             delete $user_option_aliases->{$alias};
         }
         delete $parsed_user_options->{$optspec};
+    }
+
+    # Now we just check for ordinary collisions. Since we've performed any
+    # requested deletions, any collisions between user and default aliases
+    # means that an alias is defined twice.
+    for my $name (keys %{$user_option_aliases})
+    {
+        next unless defined $default_option_aliases->{$name};
+
+        $self->die("Option --$name multiply defined");
     }
 
     # The --help option is NOT optional, so we override it if it evaluates
