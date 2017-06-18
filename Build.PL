@@ -36,7 +36,7 @@ my $builder = $class->new(
     dist_version_from   => 'lib/CLI/Startup.pm',
 
     requires => {
-        'perl'            => '5.8.8',
+        'perl'            => '5.10.0',
         'Class::Std'      => '0.01',
         'Clone'           => 0,
         'Config::Any'     => 0,
