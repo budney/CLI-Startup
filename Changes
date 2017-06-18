@@ -2,6 +2,7 @@ Revision history for CLI-Startup
 
 0.19    2017-06-18
         Updated Perl dependency to 5.10.0 -- need regex (?&..) operator
+        Removed case insensitivity of command-line options.
         Replaced deprecated JSON::Any with JSON::MaybeXS -- nice drop-in replacement.
         Cleaned up optspec validation code. Does the even-righter thing.
 0.18    2017-06-17
