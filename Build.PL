@@ -57,7 +57,7 @@ my $builder = $class->new(
     recommends => {
         'Config::Tiny'        => 0, # To read INI configs
         'Config::INI::Writer' => 0, # To write INI configs
-        'JSON::Any'           => 0, # To write JSON configs
+        'JSON::MaybeXS'       => 0, # To write JSON configs
         'YAML::Any'           => 0, # To write YAML configs
         'XML::Simple'         => 0, # To write XML configs
     },

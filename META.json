@@ -34,7 +34,7 @@
          "recommends" : {
             "Config::INI::Writer" : "0",
             "Config::Tiny" : "0",
-            "JSON::Any" : "0",
+            "JSON::MaybeXS" : "0",
             "XML::Simple" : "0",
             "YAML::Any" : "0"
          },
@@ -61,7 +61,7 @@
    "provides" : {
       "CLI::Startup" : {
          "file" : "lib/CLI/Startup.pm",
-         "version" : "0.18"
+         "version" : "0.19"
       }
    },
    "release_status" : "stable",
@@ -70,6 +70,6 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.18",
+   "version" : "0.19",
    "x_serialization_backend" : "JSON::PP version 2.27300_01"
 }
