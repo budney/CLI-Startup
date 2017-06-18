@@ -43,9 +43,10 @@ requires:
   Hash::Merge: '0'
   List::Util: '0'
   Pod::Text: '3.01'
+  Readonly: '0'
   Symbol: '0'
   Text::CSV: '0'
-  perl: v5.8.8
+  perl: v5.10.0
 resources:
   license: http://dev.perl.org/licenses/
 version: '0.19'

@@ -50,6 +50,7 @@ my $builder = $class->new(
         'Hash::Merge'     => 0,
         'List::Util'      => 0,
         'Pod::Text'       => '3.01',
+        'Readonly'        => 0,
         'Symbol'          => 0,
         'Text::CSV'       => 0,
     },

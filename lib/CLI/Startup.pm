@@ -23,10 +23,9 @@ our @EXPORT_OK = qw/startup/;
 
 our $VERSION = '0.19'; # Don't forget to update the manpage version, too!
 
-use constant {
-    V_FOR_VERBOSE => 'ALIAS OF VERBOSE',
-    V_OPTSPEC     => 'v+',
-};
+use Readonly;
+Readonly my $V_FOR_VERBOSE => 'ALIAS OF VERBOSE';
+Readonly my $V_OPTSPEC     => 'v+';
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -224,7 +223,7 @@ sub _usage_message
         keys %{$optspec};
 
     # Automatically suppress 'v' if it's an alias of 'verbose'
-    delete $options{v} if $optspec->{V_OPTSPEC} // '' eq V_FOR_VERBOSE;
+    delete $options{v} if $optspec->{$V_OPTSPEC} // '' eq $V_FOR_VERBOSE;
 
     # Note the length of the longest option
     my $length  = max map { length() } keys %options;
@@ -263,7 +262,7 @@ sub _usage_message
         # Insert 'v' as an alias of 'verbose' if it is
         push @aliases, 'v'
             if $option eq 'verbose'
-            && $optspec->{V_OPTSPEC} // '' eq V_FOR_VERBOSE;
+            && $optspec->{$V_OPTSPEC} // '' eq $V_FOR_VERBOSE;
 
         # Print aliases, if any
         if (@aliases > 0)
@@ -294,7 +293,7 @@ sub _get_default_optspec
         'rcfile-format=s' => 'Format to write the config file',
         'version|V'       => 'Print version information and exit',
         'verbose:1'       => 'Print verbose messages',  # Supports --verbose or --verbose=9
-        V_OPTSPEC         => V_FOR_VERBOSE,             # 'v+' Supports -vvv
+        $V_OPTSPEC        => $V_FOR_VERBOSE,            # 'v+' Supports -vvv
         'manpage|H'       => 'Print the manpage for this script',
     };
 }
@@ -487,7 +486,7 @@ sub _validate_optspec
         delete $default_options->{$default_optspec};
 
         # Special case: we use two options to cover 'verbose'
-        if ($alias eq 'verbose' and $default_optspec->{V_OPTSPEC} eq V_FOR_VERBOSE)
+        if ($alias eq 'verbose' and $default_optspec->{$V_OPTSPEC} eq $V_FOR_VERBOSE)
         {
             delete $default_options->{$default_aliases->{v}};
             delete $default_aliases->{v};
