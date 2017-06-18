@@ -3,34 +3,34 @@ require 5.008008;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-  'NAME' => 'CLI::Startup',
-  'INSTALLDIRS' => 'site',
-  'PL_FILES' => {},
   'VERSION_FROM' => 'lib/CLI/Startup.pm',
   'PREREQ_PM' => {
-                   'File::Basename' => 0,
-                   'Getopt::Long' => '2.38',
-                   'Test::Trap' => 0,
-                   'Pod::Text' => '3.01',
-                   'warnings' => 0,
-                   'base' => 0,
-                   'Symbol' => 0,
-                   'File::Copy' => 0,
-                   'Hash::Merge' => 0,
-                   'Class::Std' => '0.01',
-                   'File::HomeDir' => '0.97',
-                   'List::Util' => 0,
-                   'Config::Any' => 0,
-                   'Clone' => 0,
-                   'strict' => 0,
                    'Data::Dumper' => 0,
-                   'Test::Exception' => 0,
                    'Test::More' => 0,
-                   'Cwd' => 0,
                    'Text::CSV' => 0,
+                   'Clone' => 0,
+                   'Getopt::Long' => '2.38',
+                   'base' => 0,
                    'English' => 0,
-                   'Exporter' => 0
+                   'List::Util' => 0,
+                   'File::Basename' => 0,
+                   'Exporter' => 0,
+                   'warnings' => 0,
+                   'Config::Any' => 0,
+                   'strict' => 0,
+                   'Test::Trap' => 0,
+                   'Test::Exception' => 0,
+                   'Hash::Merge' => 0,
+                   'File::HomeDir' => '0.97',
+                   'Pod::Text' => '3.01',
+                   'Cwd' => 0,
+                   'File::Copy' => 0,
+                   'Symbol' => 0,
+                   'Class::Std' => '0.01'
                  },
-  'EXE_FILES' => []
+  'NAME' => 'CLI::Startup',
+  'EXE_FILES' => [],
+  'INSTALLDIRS' => 'site',
+  'PL_FILES' => {}
 )
 ;
