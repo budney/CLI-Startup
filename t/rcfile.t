@@ -250,8 +250,8 @@ mkdir "$dir/tmp";
     SKIP: {
         my $tests = 4;
 
-        eval "use JSON::Any";
-        skip("JSON::Any is not installed", $tests) if $@;
+        eval "use JSON::MaybeXS";
+        skip("JSON::MaybeXS is not installed", $tests) if $@;
 
         eval "use Config::Any::JSON";
         skip("Config::Any::JSON is not installed", $tests) if $@;

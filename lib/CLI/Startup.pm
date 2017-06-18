@@ -21,7 +21,7 @@ use Getopt::Long qw{ :config posix_default gnu_compat bundling require_order };
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.18'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.19'; # Don't forget to update the manpage version, too!
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -266,10 +266,10 @@ sub _usage_message
 sub _get_default_optspec
 {
     return {
-        'help|h'          => 'Print this helpful help message',
+        'help|h'          => 'Print this help message',
         'rcfile=s'        => 'Config file to load',
-        'write-rcfile'    => 'Write current options to rcfile',
-        'rcfile-format=s' => 'Format to write the rcfile',
+        'write-rcfile'    => 'Write the current options to config file',
+        'rcfile-format=s' => 'Format to write the config file',
         'version|V'       => 'Print version information and exit',
         'manpage|H'       => 'Print the manpage for this script',
     };
@@ -279,14 +279,27 @@ sub _get_default_optspec
 sub _parse_optspecs
 {
     my ($self, $optspecs) = @_;
-    my %parsed;
+    my $parsed = { options => {}, aliases => {} };
 
+    # Step through each option
     for my $optspec (keys %{$optspecs})
     {
-        $parsed{$optspec} = $self->_parse_spec($optspec, $optspecs->{$optspec});
+        # Parse the spec completely
+        $parsed->{options}{$optspec}
+            = $self->_parse_spec($optspec, $optspecs->{$optspec});
+
+        # Make a reverse-lookup by option name/alias
+        for my $alias (@{ $parsed->{options}{$optspec}{names} })
+        {
+            # It's a fatal error to use the same alias twice
+            $self->die("--$alias option defined twice")
+                if defined $parsed->{aliases}{$alias};
+
+            $parsed->{aliases}{$alias} = $optspec;
+        }
     }
 
-    return \%parsed;
+    return $parsed;
 }
 
 # Parses the option specs, identifying array and hash data types
@@ -398,126 +411,126 @@ sub _validate_optspec
     my ( $self, $user_optspecs ) = @_;
     my $default_optspecs         = $self->_get_default_optspec();
 
-    # Parse the user optspec and the default optspec
-    my $parsed_user_options    = $self->_parse_optspecs($user_optspecs);
-    my $parsed_default_options = $self->_parse_optspecs($default_optspecs);
+    my $parsed;
 
-    my $default_option_aliases = {};
+    # Parse the user optspecs
+    $parsed          = $self->_parse_optspecs($user_optspecs);
+    my $user_options = $parsed->{options};
+    my $user_aliases = $parsed->{aliases};
 
-    # Build a reverse-lookup table of default options
-    for my $optspec (keys %{$parsed_default_options})
-    {
-        for my $alias (@{$parsed_default_options->{$optspec}{names}})
-        {
-            $default_option_aliases->{$alias} = $optspec;
-        }
-    }
+    # Parse the default optspecs
+    $parsed             = $self->_parse_optspecs($default_optspecs);
+    my $default_options = $parsed->{options};
+    my $default_aliases = $parsed->{aliases};
 
-    # While we're here, memorize the "help" option settings.
-    my $default_help_optspec = $default_option_aliases->{'help'};
+    # While we're here, remember the "help" option settings for later.
+    # If a tricksy user deletes it, we'll put it back.
+    my $default_help_optspec = $default_aliases->{'help'};
     my $default_help_text    = $default_optspecs->{$default_help_optspec};
-    my $default_help_parsed  = $parsed_default_options->{$default_help_optspec};
+    my $default_help_parsed  = $default_options->{$default_help_optspec};
 
-    my $user_option_aliases  = {};
+    # At this point we also know that there are no conflicting aliases
+    # in either the user or default optspecs. So the only thing to check
+    # is whether the user invokes any of the default optspecs.
 
-    # Step through each user option. Check for collissions, and also delete
+    # Step through each user alias. Check for collisions, and also delete
     # any default options for which this was requested.
-    for my $optspec (keys %{$parsed_user_options})
+    for my $alias (keys %{$user_aliases})
     {
-        # Step through each alias
-        for my $alias (@{$parsed_user_options->{$optspec}{names}})
+        my $user_optspec = $user_aliases->{$alias};
+
+        # Check if this alias collides with a default option,
+        # and the value in the user optspec is false.
+        next if $user_optspecs->{$user_optspec} || 0;
+        next unless defined $default_aliases->{$alias};
+
+        my $default_optspec = $default_aliases->{$alias};
+        my $default_name    = $default_options->{$default_optspec}{names}[0];
+
+        # If the alias was not the primary name of the default option,
+        # then we delete only the specific alias requested.
+        if ($alias ne $default_name)
         {
-            # It's a fatal error to use the same alias twice
-            $self->die("--$alias option defined twice")
-                if defined $user_option_aliases->{$alias};
-
-            # Remember where this alias came from
-            $user_option_aliases->{$alias} = $optspec;
-
-            # Check if this alias collides with a default option,
-            # and the value in the user optspec is false.
-            next if $user_optspecs->{$optspec} || 0;
-            next unless defined $default_option_aliases->{$alias};
-
-            # Delete all default options corresponding to this
-            # aliase.
-            my $default_optspec = $default_option_aliases->{$alias};
-            for my $name (@{$parsed_default_options->{$default_optspec}{names}})
-            {
-                delete $default_option_aliases->{$alias};
-            }
-            delete $parsed_default_options->{$default_optspec};
+            delete $default_aliases->{$alias};
+            next;
         }
+
+        # Completely delete the default options corresponding to this alias.
+        for my $name (@{$default_options->{$default_optspec}{names}})
+        {
+            delete $default_aliases->{$name};
+        }
+        delete $default_options->{$default_optspec};
     }
 
     # Remove any disabled user options. Options are disabled by
     # setting them to anything that evaluates to false.
-    for my $optspec (keys %{$parsed_user_options})
+    for my $optspec (keys %{$user_options})
     {
-        next if $parsed_user_options->{$optspec}{desc} || 0;
+        next if $user_options->{$optspec}{desc} || 0;
 
-        for my $alias (@{$parsed_user_options->{$optspec}{names}})
+        for my $alias (@{$user_options->{$optspec}{names}})
         {
-            delete $user_option_aliases->{$alias};
+            delete $user_aliases->{$alias};
         }
-        delete $parsed_user_options->{$optspec};
+        delete $user_options->{$optspec};
     }
 
     # Now we just check for ordinary collisions. Since we've performed any
     # requested deletions, any collisions between user and default aliases
     # means that an alias is defined twice.
-    for my $name (keys %{$user_option_aliases})
+    for my $name (keys %{$user_aliases})
     {
-        next unless defined $default_option_aliases->{$name};
+        next unless defined $default_aliases->{$name};
 
-        $self->die("Option --$name multiply defined");
+        $self->die("Multiple definitions for --$name option");
     }
 
     # The --help option is NOT optional, so we override it if it evaluates
     # to false. It must be present, because if we didn't find it above we
     # would have inserted it.
-    if (not defined $user_option_aliases->{'help'})
+    if (not defined $user_aliases->{'help'})
     {
-        $parsed_user_options->{$default_help_optspec} = $default_help_parsed;
+        $user_options->{$default_help_optspec} = $default_help_parsed;
     }
 
     # If the --rcfile option is disabled, then we must also delete the
     # --rcfile-format and --write-rcfile options, since they make no
     # sense in scripts that don't support config files.
-    if ( not defined $user_option_aliases->{rcfile} )
+    if ( not defined $user_aliases->{rcfile} )
     {
         for my $option (qw{ rcfile rcfile-format write-rcfile })
         {
-            if (defined $user_option_aliases->{$option})
+            if (defined $user_aliases->{$option})
             {
-                delete $parsed_user_options->{$user_option_aliases->{$option}};
-                delete $user_option_aliases->{$option};
+                delete $user_options->{$user_aliases->{$option}};
+                delete $user_aliases->{$option};
             }
         }
     }
 
     # If rcfile writing is disabled, then we must delete the --rcfile-format
     # option, which is meaningless when we don't write config files.
-    if ( not defined $user_option_aliases->{'write-rcfile'} )
+    if ( not defined $user_aliases->{'write-rcfile'} )
     {
-        if (defined $user_option_aliases->{'rcfile-format'})
+        if (defined $user_aliases->{'rcfile-format'})
         {
-            delete $parsed_user_options->{$user_option_aliases->{'rcfile-format'}};
-            delete $user_option_aliases->{'rcfile-format'};
+            delete $user_options->{$user_aliases->{'rcfile-format'}};
+            delete $user_aliases->{'rcfile-format'};
         }
     }
 
     # Create a new optspec which includes both the user and default options.
     my $optspecs = {};
 
-    for my $optspec (keys %{$parsed_default_options})
+    for my $optspec (keys %{$default_options})
     {
-        $optspecs->{$optspec} = $parsed_default_options->{$optspec}{desc};
+        $optspecs->{$optspec} = $default_options->{$optspec}{desc};
     }
 
-    for my $optspec (keys %{$parsed_user_options})
+    for my $optspec (keys %{$user_options})
     {
-        $optspecs->{$optspec} = $parsed_user_options->{$optspec}{desc};
+        $optspecs->{$optspec} = $user_options->{$optspec}{desc};
     }
 
     return $optspecs;
@@ -1061,11 +1074,11 @@ sub _write_rcfile_json
     my ($self, $file) = @_;
 
     # Installing a JSON module is optional.
-    eval 'use JSON::Any';
-    $self->die('Can\'t write rcfile: JSON::Any is not installed.')
+    eval 'use JSON::MaybeXS';
+    $self->die('Can\'t write rcfile: JSON::MaybeXS is not installed.')
         if $EVAL_ERROR;
 
-    my $json = JSON::Any->new;
+    my $json = JSON::MaybeXS->new;
 
     open my $RCFILE, '>', $file
         or $self->die("Couldn't open file \"$file\": $OS_ERROR");
@@ -1118,7 +1131,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.18
+Version 0.19
 
 =head1 SYNOPSIS
 
@@ -1490,6 +1503,9 @@ in the C<Getopt::Long> syntax, and values are the short descriptions
 to be printed in a usage summary. See C<set_optspec> for an example,
 and see C<Getopt::Long> for the full syntax.
 
+Note that this optspec I<does> include the default options supplied by
+C<CLI::Startup>.
+
 =head2 set_optspec
 
   $app->set_optspec({
@@ -1501,7 +1517,9 @@ and see C<Getopt::Long> for the full syntax.
 
 Set the hash of command-line options. The keys use C<Getopt::Long>
 syntax, and the values are descriptions, to be printed in the usage
-message.
+message. C<CLI::Startup> will automatically add the default options
+to the optspec you supply, so C<get_optspec()> will generally not
+return the same structure spec that you gave to C<get_optspec()>.
 
 It is a fatal error to call C<set_optspec()> after calling C<init()>.
 

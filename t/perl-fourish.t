@@ -109,7 +109,7 @@ our $VERSION = 3.1415;
         trap { startup({ $spec => 'foo', bar => 'baz' }) };
 
         ok $trap->leaveby eq 'die', "Error exit with invalid spec: $spec";
-        like $trap->die, qr/multiply defined/i, "Error message printed";
+        like $trap->die, qr/multiple definitions/i, "Error message printed";
     }
 }
 
