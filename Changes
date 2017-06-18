@@ -1,5 +1,7 @@
 Revision history for CLI-Startup
 
+0.18    2017-06-17
+        Cleaned up handling of option aliases to POSIX options will work.
 0.17    2017-03-24
         Removed test for unsupported optspec "foo:+".
         Added optional user message to die_usage().
