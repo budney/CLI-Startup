@@ -16,12 +16,17 @@ use File::Basename;
 use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
-use Getopt::Long qw{ :config posix_default gnu_compat bundling require_order };
+use Getopt::Long qw{ :config posix_default bundling require_order };
 
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
 our $VERSION = '0.19'; # Don't forget to update the manpage version, too!
+
+use constant {
+    V_FOR_VERBOSE => 'ALIAS OF VERBOSE',
+    V_OPTSPEC     => 'v+',
+};
 
 # Simple command-line processing with transparent
 # support for config files.
@@ -218,6 +223,9 @@ sub _usage_message
         map { $self->_parse_spec($_, $optspec->{$_}) }
         keys %{$optspec};
 
+    # Automatically suppress 'v' if it's an alias of 'verbose'
+    delete $options{v} if $optspec->{V_OPTSPEC} // '' eq V_FOR_VERBOSE;
+
     # Note the length of the longest option
     my $length  = max map { length() } keys %options;
 
@@ -236,18 +244,32 @@ sub _usage_message
     for my $option (sort keys %options)
     {
         ## no critic (ValuesAndExpressions::ProhibitMagicNumbers)
-        my $indent = $length + 6;
+        my $indent = $length + 8;
         my $spec   = $options{$option};
 
         # Print the basic help option
-        $message .= sprintf "    %-${length}s - %s\n", $option, $spec->{desc};
+        if (length($option) == 1)
+        {
+            $message .= sprintf "    -%-${length}s  - %s\n", $option, $spec->{desc};
+        }
+        else
+        {
+            $message .= sprintf "    --%-${length}s - %s\n", $option, $spec->{desc};
+        }
+
+        my @aliases = @{ $spec->{names} };
+        shift @aliases;
+
+        # Insert 'v' as an alias of 'verbose' if it is
+        push @aliases, 'v'
+            if $option eq 'verbose'
+            && $optspec->{V_OPTSPEC} // '' eq V_FOR_VERBOSE;
 
         # Print aliases, if any
-        if (@{ $spec->{names} } > 1)
+        if (@aliases > 0)
         {
-            my @aliases = @{ $spec->{names} };
-            shift @aliases;
-
+            # Add in the dashes
+            @aliases = map { length() == 1 ? "-$_" : "--$_" } @aliases;
             $message .= sprintf "%${indent}s Aliases: %s\n", '', join(', ', @aliases);
         }
 
@@ -267,10 +289,12 @@ sub _get_default_optspec
 {
     return {
         'help|h'          => 'Print this help message',
-        'rcfile=s'        => 'Config file to load',
+        'rcfile:s'        => 'Config file to load',
         'write-rcfile'    => 'Write the current options to config file',
         'rcfile-format=s' => 'Format to write the config file',
         'version|V'       => 'Print version information and exit',
+        'verbose:1'       => 'Print verbose messages',  # Supports --verbose or --verbose=9
+        V_OPTSPEC         => V_FOR_VERBOSE,             # 'v+' Supports -vvv
         'manpage|H'       => 'Print the manpage for this script',
     };
 }
@@ -347,10 +371,10 @@ sub _parse_spec
                 (?<aliases>     (?: ^ (?&identifier) (?: (?&separator) (?&identifier) )* ) )
                 (?<identifier>  [\w-]+ )
                 (?<separator>   [|]    )
-                (?<negatable>   [!] $   )
-                (?<incremental> [+] $   )
+                (?<negatable>   [!] $  )
+                (?<incremental> [+] $  )
                 (?<specifier>   (?: (?&optional) (?&type) ) )
-                (?<type>        [fis]  )
+                (?<type>        (?: [fis] | \d+ ) )
                 (?<optional>    [:=]   )
                 (?<multiple>    [@%]   )
                 (?<unmatched>   (?: .* $ ) )
@@ -461,6 +485,13 @@ sub _validate_optspec
             delete $default_aliases->{$name};
         }
         delete $default_options->{$default_optspec};
+
+        # Special case: we use two options to cover 'verbose'
+        if ($alias eq 'verbose' and $default_optspec->{V_OPTSPEC} eq V_FOR_VERBOSE)
+        {
+            delete $default_options->{$default_aliases->{v}};
+            delete $default_aliases->{v};
+        }
     }
 
     # Remove any disabled user options. Options are disabled by

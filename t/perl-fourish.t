@@ -128,7 +128,7 @@ our $VERSION = 3.1415;
     trap { startup({ 'x|a|b|c' => 'aliased option' }) };
 
     ok $trap->exit == 0, "Exit status";
-    like $trap->stdout, qr/Aliases: a, b, c/, "Help text";
+    like $trap->stdout, qr/Aliases: -a, -b, -c/, "Help text";
 }
 
 done_testing();
