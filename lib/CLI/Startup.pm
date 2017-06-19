@@ -23,7 +23,7 @@ use Getopt::Long qw{
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.20'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.21'; # Don't forget to update the manpage version, too!
 
 use Readonly;
 Readonly my $V_FOR_VERBOSE => 'ALIAS OF VERBOSE';
@@ -1177,7 +1177,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.20
+Version 0.21
 
 =head1 SYNOPSIS
 
@@ -1359,7 +1359,7 @@ behind this "option," in order to support the prevailing paradigms:
 
 =over
 
-If you specify C<--verbose>, then C<get_options()> will return a has with its 'verbose'
+If you specify C<--verbose>, then C<get_options()> will return a hash with its 'verbose'
 key set to 1.
 
 If you specify C<--verbose=N> or C<--verbose N>, the 'verbose' key returned by C<get_options()>
@@ -1375,7 +1375,7 @@ If you use a mixture of C<-v> and C<--verbose> options, the total values will be
 The point of this is to support C<-vvv>, C<--verbose>, and C<--verbose=5> style options. It
 allows the user to perform pathological combinations of them all, but the end result should
 do what the user meant. When generating verbose output, you can check the value of
-C<get_options()->{verbose}> and print if it's non-zero, or print if it exceeds some threshold.
+C<< get_options()->{verbose} >> and print if it's non-zero, or print if it exceeds some threshold.
 
 =item --version | -V
 
@@ -1939,7 +1939,7 @@ L<http://search.cpan.org/dist/CLI-Startup/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2011-2014 Len Budney.
+Copyright 2011-2017 Len Budney.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
