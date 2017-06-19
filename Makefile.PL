@@ -3,35 +3,35 @@ require 5.010000;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-  'INSTALLDIRS' => 'site',
-  'EXE_FILES' => [],
-  'NAME' => 'CLI::Startup',
   'PREREQ_PM' => {
-                   'Class::Std' => '0.01',
-                   'strict' => 0,
-                   'File::Basename' => 0,
-                   'Test::Exception' => 0,
+                   'Config::Any' => 0,
                    'File::Copy' => 0,
                    'English' => 0,
-                   'Exporter' => 0,
-                   'Config::Any' => 0,
-                   'Test::Trap' => 0,
-                   'Hash::Merge' => 0,
-                   'Data::Dumper' => 0,
-                   'Cwd' => 0,
+                   'strict' => 0,
                    'File::HomeDir' => '0.97',
-                   'base' => 0,
-                   'Symbol' => 0,
                    'Clone' => 0,
-                   'warnings' => 0,
-                   'Getopt::Long' => '2.38',
+                   'Symbol' => 0,
+                   'Exporter' => 0,
+                   'Test::More' => 0,
+                   'Cwd' => 0,
                    'Pod::Text' => '3.01',
+                   'Test::Exception' => 0,
+                   'warnings' => 0,
+                   'Data::Dumper' => 0,
+                   'Class::Std' => '0.01',
+                   'base' => 0,
                    'Readonly' => 0,
+                   'Test::Trap' => 0,
                    'List::Util' => 0,
+                   'Hash::Merge' => 0,
                    'Text::CSV' => 0,
-                   'Test::More' => 0
+                   'File::Basename' => 0,
+                   'Getopt::Long' => '2.38'
                  },
   'PL_FILES' => {},
-  'VERSION_FROM' => 'lib/CLI/Startup.pm'
+  'EXE_FILES' => [],
+  'NAME' => 'CLI::Startup',
+  'VERSION_FROM' => 'lib/CLI/Startup.pm',
+  'INSTALLDIRS' => 'site'
 )
 ;

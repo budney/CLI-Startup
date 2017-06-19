@@ -1,5 +1,10 @@
 Revision history for CLI-Startup
 
+0.20    2017-06-18
+        Ensure that get_options()->{verbose} is always defined, even when it's 0.
+        Consolidate the --verbose and -v options (-v is a magic pseudo-alias).
+        Enable init() to work even if you only want the default options and no others.
+        Add a verbose explanation of the default options to the man page.
 0.19    2017-06-18
         Updated Perl dependency to 5.10.0 -- need regex (?&..) operator
         Removed case insensitivity of command-line options.

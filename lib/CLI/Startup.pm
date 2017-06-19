@@ -16,12 +16,14 @@ use File::Basename;
 use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
-use Getopt::Long qw{ :config posix_default bundling require_order no_ignore_case };
+use Getopt::Long qw{
+    :config posix_default bundling require_order no_ignore_case
+};
 
 use base 'Exporter';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.19'; # Don't forget to update the manpage version, too!
+our $VERSION = '0.20'; # Don't forget to update the manpage version, too!
 
 use Readonly;
 Readonly my $V_FOR_VERBOSE => 'ALIAS OF VERBOSE';
@@ -597,6 +599,20 @@ sub init
         $options, $config->{default}, $default
     );
 
+    # Add a 'verbose' option that evaluates to false if there isn't
+    # already one in $options.
+    $options->{verbose} //= 0;
+
+    # Consolidate the 'v' and 'verbose' options if the default
+    # options are in play here.
+    if ($self->_get_default_optspec()->{$V_OPTSPEC} eq $V_FOR_VERBOSE)
+    {
+        if (defined $options->{v})
+        {
+            $options->{verbose} += delete $options->{v};
+        }
+    }
+
     # Save the fully-processed options
     $options_of{ident $self} = clone($options);
 
@@ -837,7 +853,7 @@ sub BUILD
     {
         $argref = { options => $argref };
     }
-    $self->set_optspec($argref->{options}) if keys %{$argref->{options} || {}};
+    $self->set_optspec($argref->{options} || {});
 
     # Caller can specify default settings for all options.
     $self->set_default_settings($argref->{default_settings})
@@ -1161,7 +1177,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.19
+Version 0.20
 
 =head1 SYNOPSIS
 
@@ -1288,6 +1304,96 @@ methods that prepend the name of the script and postpend a newline.
     $app->print_version();  # Print version information for the calling script
     $app->warn();           # Format warnings nicely
     $app->die();            # Die with a nicely-formatted message
+
+=head1 DEFAULT OPTIONS
+
+Here is a help message printed by C<CLI::Startup> for a script
+that defines I<no> command-line options:
+
+  usage: test [options]
+  Options:
+      --help          - Print this help message
+                        Aliases: -h
+      --manpage       - Print the manpage for this script
+                        Aliases: -H
+      --rcfile        - Config file to load
+      --rcfile-format - Format to write the config file
+      --verbose       - Print verbose messages
+                        Aliases: -v
+      --version       - Print version information and exit
+                        Aliases: -V
+      --write-rcfile  - Write the current options to config file
+
+The options work as follows:
+
+=over
+
+=item --help | -h
+
+Prints a help message like the one above. The message is dynamically created
+using the C<Getopt::Long>-style optspec and the help text. It automatically
+identifies negatable options, and lists aliases for options that have any.
+
+=item --manpage | -H
+
+This option is a poor-man's version of the C<--more-help> option some scripts
+provide: when the C<--manpage> option is used, C<CLI::Startup> calls C<perldoc>
+on the script itself.
+
+=item --rcfile
+
+This option lets the user specify the .rc file from which to load saved arguments.
+Any options in that file will override the app defaults, and will in turn be overridden
+by any command-line options specified along with C<--rcfile>.
+
+=item --rcfile-format
+
+Allows the user to specify the formay of the .rc file I<when saving a new one> using
+the C<--write-rcfile> option. Valid values are: INI, XML, JSON, YAML, PERL. The value
+is not case sensitive.
+
+=item --verbose | -v
+
+This option lets the user request verbose output. There's a certain amount of extra magic
+behind this "option," in order to support the prevailing paradigms:
+
+=over
+
+If you specify C<--verbose>, then C<get_options()> will return a has with its 'verbose'
+key set to 1.
+
+If you specify C<--verbose=N> or C<--verbose N>, the 'verbose' key returned by C<get_options()>
+will have the value N.
+
+If you specify C<-vvv> or C<-v -v>, etc., the 'verbose' key will have a value equal to the
+number of 'v' options that were specified.
+
+If you use a mixture of C<-v> and C<--verbose> options, the total values will be added up.
+
+=back
+
+The point of this is to support C<-vvv>, C<--verbose>, and C<--verbose=5> style options. It
+allows the user to perform pathological combinations of them all, but the end result should
+do what the user meant. When generating verbose output, you can check the value of
+C<get_options()->{verbose}> and print if it's non-zero, or print if it exceeds some threshold.
+
+=item --version | -V
+
+Note the capital C<-V>, as distinct from the lowercase C<-v> that is the alias of C<--verbose>.
+This option prints the version, as found in C<$::VERSION>, along with the path to the script
+and the Perl version.
+
+=item --write-rcfile
+
+This option takes the fully-processed options, including the command line, any .rc file
+options, and the app defaults, and writes the results back to the specified .rc file. This
+can be used to save and reuse invocations: build up the command line that you want, and
+then tack on the C<--write-rcfile> option to save it. Next time you run the script with
+no options (or with C<--rcfile PATH> if the .rc file isn't the default one), it will
+use the saved options.
+
+=back
+
 
 =head1 COMMAND LINE PROCESSING
 
@@ -1784,6 +1890,13 @@ If you try to define an option like 'help|?', expecting to get
 C<--help> and C<--?> as synonyms, something will break. Basically,
 C<CLI::Startup> isn't quite smart enough to recognize that your
 help option is a suitable replacement for the builtin one.
+
+You I<can> delete default options by supplying the primary name
+of the option with a help-text value that evaluates to false.
+C<CLI::Startup> will delete that option from the defaults before
+merging with your options. If you try that with C<--help>, though,
+C<CLI::Startup> will put that option back in. Its main use is to
+disable .rc file handing.
 
 Please report any bugs or feature requests to C<bug-cli-startup at
 rt.cpan.org>, or through the web interface at

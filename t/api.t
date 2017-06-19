@@ -25,7 +25,10 @@ throws_ok { $app->write_rcfile     } qr/before init/,
     "write_rcfile() before init()";
 
 # This call should fail because options weren't defined yet.
-throws_ok { $app->die_usage } qr/FATAL/, "die_usage() with no options";
+trap { $app->die_usage };
+like $trap->stderr, qr/usage:/, "die_usage() works with only default options";
+ok $trap->stdout eq '', "Nothing printed to stdout";
+ok $trap->exit == 1, "Correct exit status";
 
 # These calls should fail due to incorrect arguments
 throws_ok { $app->init(1) } qr/no arguments/,
