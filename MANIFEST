@@ -25,8 +25,8 @@ xt/kwalitee.t
 xt/manifest.t
 xt/modules.t
 xt/perl-critic.t
-xt/perlcriticrc
 xt/perl-tidy.t
+xt/perlcriticrc
 xt/perltidyrc
 xt/pod-coverage.t
 xt/pod-spelling.t
