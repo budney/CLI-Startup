@@ -1,6 +1,6 @@
 package CLI::Startup;
 
-use English qw( -no_match_vars );
+use English ;# qw( -no_match_vars );
 
 use warnings;
 use strict;
@@ -287,7 +287,7 @@ sub _usage_message
         }
 
         # Print negation, if any
-        if ( $spec->{bool} )
+        if ( $spec->{boolean} )
         {
             $message .= sprintf "%${indent}s Negate this with --no-%s\n", '',
                 $option;
@@ -354,7 +354,7 @@ sub _option_data_types
     {
         my $spec = $self->_parse_spec( $option, $optspecs->{$option} );
 
-        for my $type (qw{ array hash bool count flag })
+        for my $type (qw{ array hash boolean count flag })
         {
             next unless $spec->{$type};
             $types{$_} = uc($type) for @{ $spec->{names} };
@@ -372,51 +372,59 @@ sub _parse_spec
     ## no critic ( Perl::Critic::Policy::RegularExpressions::ProhibitComplexRegexes )
 
     # We really want the "name(s)" portion
-    my (
-        $specification, $boolean,     $incremental,
-        $type,          $cardinality, $unmatched
-        )
-        = $spec =~ m{
+    $spec =~ m{
+        (?:
+            (?<names>         (?&NAMES)     )
             (?:
-                ( (?&aliases)      )
-                ( (?&negatable)?   )
-                ( (?&incremental)? )
-                ( (?&specifier)?   )
-                ( (?&multiple)?    )
-                ( (?&unmatched)?   )
-            )
-            (?(DEFINE)
-                (?<aliases>     (?: ^ (?&identifier) (?: (?&separator) (?&identifier) )* ) )
-                (?<identifier>  [\w-]+ )
-                (?<separator>   [|]    )
-                (?<negatable>   [!] $  )
-                (?<incremental> [+] $  )
-                (?<specifier>   (?: (?&optional) (?&type) ) )
-                (?<type>        (?: [fis] | \d+ ) )
-                (?<optional>    [:=]   )
-                (?<multiple>    [@%]   )
-                (?<unmatched>   (?: .* $ ) )
-            )
-        }xms;
+                (?<boolean>     (?&NEGATABLE)  ) |
+                (?<repeated>    (?&REPEATABLE) ) |
+                (?:
+                    (?<optional> (?&OPTIONAL))
+                    (?<type> (?&TYPE))
+                    (?<multiple> (?&MULTIPLE))?
+                )
+            )?
+            (?<unmatched>     (?&LEFTOVERS)?  )
+        )
+        (?(DEFINE)
+            (?<NAMES>     (?: ^ (?&IDENTIFIER) (?: (?&SEPARATOR) (?&IDENTIFIER) )* ) )
+            (?<IDENTIFIER>  [\w-]+ )
+            (?<SEPARATOR>   [|]    )
+            (?<TYPE>        (?: [fis] | \d+ ) )
+            (?<OPTIONAL>    [:=]   )
+            (?<MULTIPLE>    [@%]   )
+            (?<NEGATABLE>   [!] $  )        # This must be the last thing in the spec
+            (?<REPEATABLE>  [+] $  )        # This must be the last thing in the spec
+            (?<LEFTOVERS>   (?: .* $ ) )    # This will be the last thing in an invalid spec
+        )
+    }xms;
+
+    # Capture the pieces of the spec that we found
+    my %attrs = %LAST_PAREN_MATCH;
 
     # If there's anything we failed to match, it's a fatal error
-    $self->die("Invalid optspec: $spec") if $unmatched;
+    $self->die("Invalid optspec: $spec") if $attrs{unmatched};
 
     ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
     ## no critic ( Perl::Critic::Policy::ValuesAndExpressions::ProhibitMagicNumbers )
+    #<< Leave this alone, perltidy
 
     # Note: doesn't identify string, int, float options
     return {
-        spec  => $spec,
-        names => [ split /[|]/xms, $specification ],
-        desc  => $help_text,
-        type  => substr( $type, -1, 1 ),
-        array => ( $cardinality eq '@' ? 1 : 0 ),
-        hash  => ( $cardinality eq '%' ? 1 : 0 ),
-        bool  => ( $boolean eq '!' ? 1 : 0 ),
-        count => ( $incremental eq '+' ? 1 : 0 ),
-        flag  => ( $type eq '' ? 1 : 0 ),
+        spec     => $spec,
+        names    => [ split /[|]/xms, $attrs{names} ],
+        desc     => $help_text,
+        required => ( ( $attrs{optional} // '' ) eq '='    ? 1   : 0 ),
+        type     => ( ( $attrs{type}     // '' ) =~ /\d+/  ? 'i' : $attrs{type} ),
+        array    => ( ( $attrs{multiple} // '' ) eq '@'    ? 1   : 0 ),
+        hash     => ( ( $attrs{multiple} // '' ) eq '%'    ? 1   : 0 ),
+        scalar   => ( ( $attrs{multiple} // '' ) eq ''     ? 1   : 0 ),
+        boolean  => ( ( $attrs{boolean}  // '' ) eq '!'    ? 1   : 0 ),
+        count    => ( ( $attrs{repeated} // '' ) eq '+'    ? 1   : 0 ),
+        flag     => ( ( $attrs{type}     // '' ) eq ''     ? 1   : 0 ),
     };
+
+    #>> End perltidy free zone
 }
 
 # Returns a hash of option aliases and specifications from the
