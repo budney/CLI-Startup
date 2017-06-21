@@ -247,8 +247,8 @@ sub _usage_message
     $message
         .= 'usage: '
         . basename($PROGRAM_NAME) . ' '
-        . $self->get_usage . "\n";
-    $message .= "Options:\n";
+        . $self->get_usage . "\n"
+        . "Options:\n";
 
     # Print the options, sorted in dictionary order.
     for my $option ( sort keys %options )
