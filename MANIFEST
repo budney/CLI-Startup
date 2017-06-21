@@ -26,6 +26,8 @@ xt/manifest.t
 xt/modules.t
 xt/perl-critic.t
 xt/perlcriticrc
+xt/perl-tidy.t
+xt/perltidyrc
 xt/pod-coverage.t
 xt/pod-spelling.t
 xt/pod.t
