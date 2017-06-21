@@ -7,7 +7,7 @@
 ,v$
 \B\.svn\b
 \B\.git\b
-\B\.gitignore\b
+\b\.gitignore\b
 \b_darcs\b
 \B\.cvsignore$
 
@@ -17,7 +17,8 @@
 \bdescrip.mms$
 
 # Avoid Makemaker generated and utility files.
-\bMANIFEST\.bak
+\bMANIFEST\.bak\b
+\bMANIFEST\.skip\b
 \bMakefile$
 \bblib/
 \bMakeMaker-\d
@@ -35,13 +36,16 @@
 
 # Avoid temp and backup files.
 ~$
-\.old$
 \#$
-\b\.#
-\.bak$
-\.tmp$
 \.#
-\.rej$
+\b\.#
+\B\.old\b
+\B\.bak\b
+\B\.tmp\b
+\B\.rej\b
+\B\.swp\b
+\B\.tdy\b
+\berrors\.err\b
 
 # Avoid OS-specific files/dirs
 # Mac OSX metadata
@@ -59,7 +63,6 @@
 
 
 # Avoid Module::Build generated and utility files.
-\b\..*\.swp
 \bBuild$
 \bBuild.bat$
 \b_build
