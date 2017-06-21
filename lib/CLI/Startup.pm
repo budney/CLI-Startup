@@ -220,11 +220,15 @@ sub _usage_message
     $self->die('_usage_message() called without defining any options')
         unless keys %{$optspec};
 
+    #<<< Leave this alone, perltidy
+
     # In the usage text, show the option names, not the aliases.
     my %options =
         map { ( $_->{names}[0], $_ ) }
         map { $self->_parse_spec( $_, $optspec->{$_} ) }
         keys %{$optspec};
+
+    #>>> End perltidy-free zone
 
     # Automatically suppress 'v' if it's an alias of 'verbose'
     delete $options{v} if $optspec->{$V_OPTSPEC} // '' eq $V_FOR_VERBOSE;
@@ -368,7 +372,8 @@ sub _parse_spec
     ## no critic ( Perl::Critic::Policy::RegularExpressions::ProhibitComplexRegexes )
 
     # We really want the "name(s)" portion
-    my ($specification, $boolean,     $incremental,
+    my (
+        $specification, $boolean,     $incremental,
         $type,          $cardinality, $unmatched
         )
         = $spec =~ m{
