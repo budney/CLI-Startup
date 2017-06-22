@@ -374,36 +374,59 @@ sub _parse_spec
     # We really want the "name(s)" portion
     $spec =~ m{
         (?:
-            (?<names>         (?&NAMES)     )
+            (?&start)
+            (?<names>            (?&word_list)      )
             (?:
-                (?<boolean>     (?&NEGATABLE)  ) |
-                (?<repeated>    (?&REPEATABLE) ) |
-                (?:
-                    (?<optional> (?&OPTIONAL))
-                    (?<type> (?&TYPE))
-                    (?<multiple> (?&MULTIPLE))?
-                )
+                  (?: # Boolean
+                      (?<type>     (?&bang) (?&end) ) )
+                | (?: # Counter
+                      (?<argument> (?&optional)?    )
+                      (?<type>     (?&plus) (?&end) ) )
+                | (?: # Scalar types - number, integer, string
+                      (?<argument> (?&arg)          )
+                      (?<subtype>  (?&scalar_type)  )
+                      (?<type>     (?&non_scalar)?  ) )
+                | (?: # Int with default argument
+                      (?<argument> (?&optional)     )
+                      (?<default>  (?&integer)      ) )
+                | (?: # Flag
+                      (?&end)                       ) # Nothing to capture
             )?
-            (?<unmatched>     (?&LEFTOVERS)?  )
+            (?<garbage> (?&unmatched)? )
+
+            # This ensures that every token is defined, even if only
+            # to the empty string.
+            (?<default>  (?(<default>))  )
+            (?<type>     (?(<type>))     )
+            (?<subtype>  (?(<subtype>))  )
+            (?<argument> (?(<argument>)) )
         )
         (?(DEFINE)
-            (?<NAMES>     (?: ^ (?&IDENTIFIER) (?: (?&SEPARATOR) (?&IDENTIFIER) )* ) )
-            (?<IDENTIFIER>  [\w-]+ )
-            (?<SEPARATOR>   [|]    )
-            (?<TYPE>        (?: [fis] | \d+ ) )
-            (?<OPTIONAL>    [:=]   )
-            (?<MULTIPLE>    [@%]   )
-            (?<NEGATABLE>   [!] $  )        # This must be the last thing in the spec
-            (?<REPEATABLE>  [+] $  )        # This must be the last thing in the spec
-            (?<LEFTOVERS>   (?: .* $ ) )    # This will be the last thing in an invalid spec
+            (?<start>       ^        )
+            (?<word_list>   (?: (?&word) (?: (?&separator) (?&alias) )* ) )
+            (?<word>        \w[-\w]* )
+            (?<alias>       (?: [?] | (?&word) ) )
+            (?<separator>   [|]      )
+            (?<scalar_type> (?: [fions] ) )
+            (?<integer>     (?: -? \d+ ) )
+            (?<arg>         [:=]     )
+            (?<optional>    [:]      )
+            (?<mandatory>   [=]      )
+            (?<non_scalar>  [@%]     )
+            (?<hash>        [%]      )
+            (?<array>       [@]      )
+            (?<bang>        [!]      )
+            (?<plus>        [+]      )
+            (?<end>         (?! . )  )
+            (?<unmatched>   (?: .* $ ) )    # This will be the last thing in an invalid spec
         )
     }xms;
 
-    # Capture the pieces of the spec that we found
+    # Capture the pieces of the optspec that we found
     my %attrs = %LAST_PAREN_MATCH;
 
-    # If there's anything we failed to match, it's a fatal error
-    $self->die("Invalid optspec: $spec") if $attrs{unmatched};
+    # If there's anything left that we failed to match, it's a fatal error
+    $self->die("Invalid optspec: $spec") if $attrs{garbage};
 
     ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
     ## no critic ( Perl::Critic::Policy::ValuesAndExpressions::ProhibitMagicNumbers )
@@ -414,14 +437,16 @@ sub _parse_spec
         spec     => $spec,
         names    => [ split /[|]/xms, $attrs{names} ],
         desc     => $help_text,
-        required => ( ( $attrs{optional} // '' ) eq '='    ? 1   : 0 ),
-        type     => ( ( $attrs{type}     // '' ) =~ /\d+/  ? 'i' : $attrs{type} ),
-        array    => ( ( $attrs{multiple} // '' ) eq '@'    ? 1   : 0 ),
-        hash     => ( ( $attrs{multiple} // '' ) eq '%'    ? 1   : 0 ),
-        scalar   => ( ( $attrs{multiple} // '' ) eq ''     ? 1   : 0 ),
-        boolean  => ( ( $attrs{boolean}  // '' ) eq '!'    ? 1   : 0 ),
-        count    => ( ( $attrs{repeated} // '' ) eq '+'    ? 1   : 0 ),
-        flag     => ( ( $attrs{type}     // '' ) eq ''     ? 1   : 0 ),
+        default  => $attrs{default},
+        required => ( $attrs{argument} eq '='     ? 1   : 0 ),
+        type     => ( $attrs{subtype}  eq ''      ? 'i' :
+                      $attrs{subtype}  eq 'n'     ? 'i' : $attrs{subtype} ),
+        array    => ( $attrs{type}     eq '@'     ? 1   : 0 ),
+        hash     => ( $attrs{type}     eq '%'     ? 1   : 0 ),
+        scalar   => ( $attrs{type}     !~ m{[@%]} ? 1   : 0 ),
+        boolean  => ( $attrs{type}     eq '!'     ? 1   : 0 ),
+        count    => ( $attrs{type}     eq '+'     ? 1   : 0 ),
+        flag     => ( $attrs{type} eq '' && $attrs{argument} eq '' ? 1   : 0 ),
     };
 
     #>> End perltidy free zone
@@ -826,7 +851,7 @@ sub _parse_setting
 
     # Boolean or flags are converted to boolean. Booleans are just
     # negatable flags.
-    if ( $type eq 'BOOL' or $type eq 'FLAG' )
+    if ( $type eq 'BOOLEAN' or $type eq 'FLAG' )
     {
         return $value // 0 ? 1 : 0;
     }
