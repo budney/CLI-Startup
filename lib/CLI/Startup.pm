@@ -345,7 +345,7 @@ sub _parse_optspecs
 sub _option_data_types
 {
     my $self     = shift;
-    my $optspecs = $self->get_optspec);
+    my $optspecs = $self->get_optspec;
     my %types;
 
     # Build a list of the array and hash configs, so we can
