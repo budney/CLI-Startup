@@ -345,7 +345,7 @@ sub _parse_optspecs
 sub _option_data_types
 {
     my $self     = shift;
-    my $optspecs = $self->get_optspec();
+    my $optspecs = $self->get_optspec);
     my %types;
 
     # Build a list of the array and hash configs, so we can
@@ -485,7 +485,7 @@ sub _validate_optspec
 {
    # no critic ( Perl::Critic::Policy::Modules::ProhibitExcessMainComplexity )
     my ( $self, $user_optspecs ) = @_;
-    my $default_optspecs = $self->_get_default_optspec();
+    my $default_optspecs = $self->_get_default_optspec;
 
     my $parsed;
 
@@ -639,7 +639,7 @@ sub init
     # Parse command-line options, then read the config file if any.
     my $options = $self->_process_command_line;
     my $config  = $self->_read_config_file;
-    my $default = $self->get_default_settings();
+    my $default = $self->get_default_settings;
 
     # Save the unprocessed command-line options
     $raw_options_of{ ident $self} = clone($options);
@@ -655,7 +655,7 @@ sub init
 
     # Consolidate the 'v' and 'verbose' options if the default
     # options are in play here.
-    if ( $self->_get_default_optspec()->{$V_OPTSPEC} eq $V_FOR_VERBOSE )
+    if ( $self->_get_default_optspec->{$V_OPTSPEC} eq $V_FOR_VERBOSE )
     {
         if ( defined $options->{v} )
         {
@@ -680,7 +680,7 @@ sub init
     $self->print_manpage if $options->{manpage};
 
     # Write back the config if requested
-    $self->write_rcfile if $options->{'write-rcfile'};
+    $self->write_rcfile() if $options->{'write-rcfile'};
 
     return;
 }
@@ -719,7 +719,7 @@ sub _process_command_line
                 $csv->parse($value)
                     or $self->die_usage(
                     "Can't parse --$option option \"$value\": "
-                        . $csv->error_diag() );
+                        . $csv->error_diag );
                 push @values, $csv->fields;
             }
 
@@ -1099,7 +1099,7 @@ sub _write_rcfile_ini
         next unless ref $value;
 
         # We produce compliant CSV; no options needed.
-        my $csv = Text::CSV->new;
+        my $csv = Text::CSV->new({});
 
         # Serialize the two structures we know about.
         if ( ref $value eq 'ARRAY' )
@@ -1171,7 +1171,7 @@ sub _write_rcfile_json
     $self->die('Can\'t write rcfile: JSON::MaybeXS is not installed.')
         if $EVAL_ERROR;
 
-    my $json = JSON::MaybeXS->new;
+    my $json = JSON::MaybeXS->new();
 
     open my $RCFILE, '>', $file
         or $self->die("Couldn't open file \"$file\": $OS_ERROR");
