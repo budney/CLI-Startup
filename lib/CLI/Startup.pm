@@ -1,6 +1,6 @@
 package CLI::Startup;
 
-use English ;# qw( -no_match_vars );
+use English qw( -no_match_vars );
 
 use warnings;
 use strict;
@@ -438,15 +438,18 @@ sub _parse_spec
         names    => [ split /[|]/xms, $attrs{names} ],
         desc     => $help_text,
         default  => $attrs{default},
-        required => ( $attrs{argument} eq '='     ? 1   : 0 ),
-        type     => ( $attrs{subtype}  eq ''      ? 'i' :
-                      $attrs{subtype}  eq 'n'     ? 'i' : $attrs{subtype} ),
-        array    => ( $attrs{type}     eq '@'     ? 1   : 0 ),
-        hash     => ( $attrs{type}     eq '%'     ? 1   : 0 ),
-        scalar   => ( $attrs{type}     !~ m{[@%]} ? 1   : 0 ),
-        boolean  => ( $attrs{type}     eq '!'     ? 1   : 0 ),
-        count    => ( $attrs{type}     eq '+'     ? 1   : 0 ),
-        flag     => ( $attrs{type} eq '' && $attrs{argument} eq '' ? 1   : 0 ),
+        required => ( $attrs{argument} eq '=' ? 1 : 0 ),
+        type     => (
+              $attrs{subtype} eq ''  ? 'i'
+            : $attrs{subtype} eq 'n' ? 'i'
+            :                          $attrs{subtype}
+        ),
+        array   => ( $attrs{type} eq '@'     ? 1 : 0 ),
+        hash    => ( $attrs{type} eq '%'     ? 1 : 0 ),
+        scalar  => ( $attrs{type} !~ m{[@%]} ? 1 : 0 ),
+        boolean => ( $attrs{type} eq '!'     ? 1 : 0 ),
+        count   => ( $attrs{type} eq '+'     ? 1 : 0 ),
+        flag => ( $attrs{type} eq '' && $attrs{argument} eq '' ? 1 : 0 ),
     };
 
     #>> End perltidy free zone
@@ -1099,7 +1102,7 @@ sub _write_rcfile_ini
         next unless ref $value;
 
         # We produce compliant CSV; no options needed.
-        my $csv = Text::CSV->new({});
+        my $csv = Text::CSV->new( {} );
 
         # Serialize the two structures we know about.
         if ( ref $value eq 'ARRAY' )
