@@ -3,35 +3,35 @@ require 5.010000;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
+  'EXE_FILES' => [],
   'NAME' => 'CLI::Startup',
-  'INSTALLDIRS' => 'site',
   'VERSION_FROM' => 'lib/CLI/Startup.pm',
+  'PL_FILES' => {},
+  'INSTALLDIRS' => 'site',
   'PREREQ_PM' => {
-                   'base' => 0,
-                   'Exporter' => 0,
-                   'Pod::Text' => '3.01',
-                   'English' => 0,
-                   'Cwd' => 0,
+                   'Test::Trap' => 0,
                    'Class::Std' => '0.01',
-                   'Test::More' => 0,
                    'Hash::Merge' => 0,
                    'File::Basename' => 0,
-                   'Config::Any' => 0,
-                   'Test::Exception' => 0,
-                   'File::Copy' => 0,
+                   'Exporter' => 0,
                    'Data::Dumper' => 0,
-                   'Readonly' => 0,
-                   'Test::Trap' => 0,
-                   'File::HomeDir' => '0.97',
+                   'Cwd' => 0,
+                   'Pod::Text' => '3.01',
                    'Text::CSV' => 0,
-                   'Symbol' => 0,
+                   'English' => 0,
+                   'Test::More' => 0,
+                   'Config::Any' => 0,
                    'List::Util' => 0,
                    'strict' => 0,
-                   'Clone' => 0,
+                   'Test::Exception' => 0,
                    'Getopt::Long' => '2.38',
-                   'warnings' => 0
-                 },
-  'PL_FILES' => {},
-  'EXE_FILES' => []
+                   'Clone' => 0,
+                   'warnings' => 0,
+                   'File::HomeDir' => '0.97',
+                   'base' => 0,
+                   'File::Copy' => 0,
+                   'Symbol' => 0,
+                   'Readonly' => 0
+                 }
 )
 ;
