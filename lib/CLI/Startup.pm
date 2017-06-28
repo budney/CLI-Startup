@@ -370,6 +370,7 @@ sub _parse_spec
     my ( $self, $spec, $help_text ) = @_;
 
     ## no critic ( Perl::Critic::Policy::RegularExpressions::ProhibitComplexRegexes )
+    ## no critic ( Perl::Critic::Policy::RegularExpressions::ProhibitUnusedCapture )
 
     # We really want the "name(s)" portion
     $spec =~ m{
@@ -428,8 +429,7 @@ sub _parse_spec
     # If there's anything left that we failed to match, it's a fatal error
     $self->die("Invalid optspec: $spec") if $attrs{garbage};
 
-    ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes )
-    ## no critic ( Perl::Critic::Policy::ValuesAndExpressions::ProhibitMagicNumbers )
+    ## no critic ( ValuesAndExpressions::ProhibitNoisyQuotes Perl::Critic::Policy::ValuesAndExpressions::ProhibitMagicNumbers)
     #<< Leave this alone, perltidy
 
     # Note: doesn't identify string, int, float options
@@ -444,11 +444,11 @@ sub _parse_spec
             : $attrs{subtype} eq 'n' ? 'i'
             :                          $attrs{subtype}
         ),
-        array   => ( $attrs{type} eq '@'     ? 1 : 0 ),
-        hash    => ( $attrs{type} eq '%'     ? 1 : 0 ),
-        scalar  => ( $attrs{type} !~ m{[@%]} ? 1 : 0 ),
-        boolean => ( $attrs{type} eq '!'     ? 1 : 0 ),
-        count   => ( $attrs{type} eq '+'     ? 1 : 0 ),
+        array   => ( $attrs{type} eq '@'        ? 1 : 0 ),
+        hash    => ( $attrs{type} eq '%'        ? 1 : 0 ),
+        scalar  => ( $attrs{type} !~ m{[@%]}xms ? 1 : 0 ),
+        boolean => ( $attrs{type} eq '!'        ? 1 : 0 ),
+        count   => ( $attrs{type} eq '+'        ? 1 : 0 ),
         flag => ( $attrs{type} eq '' && $attrs{argument} eq '' ? 1 : 0 ),
     };
 
