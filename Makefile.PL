@@ -3,35 +3,35 @@ require 5.010000;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
-          'NAME' => 'CLI::Startup',
-          'EXE_FILES' => [],
-          'VERSION_FROM' => 'lib/CLI/Startup.pm',
-          'PREREQ_PM' => {
-                           'Pod::Text' => '3.01',
-                           'Text::CSV' => 0,
-                           'Test::Trap' => 0,
-                           'Class::Std' => '0.01',
-                           'Symbol' => 0,
-                           'List::Util' => 0,
-                           'Config::Any' => 0,
-                           'warnings' => 0,
-                           'base' => 0,
-                           'Getopt::Long' => '2.38',
-                           'File::Copy' => 0,
-                           'Test::Exception' => 0,
-                           'English' => 0,
-                           'Hash::Merge' => 0,
-                           'File::HomeDir' => '0.97',
-                           'Data::Dumper' => 0,
-                           'Readonly' => 0,
-                           'Exporter' => 0,
-                           'strict' => 0,
-                           'Test::More' => 0,
-                           'Clone' => 0,
-                           'File::Basename' => 0,
-                           'Cwd' => 0
-                         }
-        )
+  'PREREQ_PM' => {
+                   'Pod::Text' => '3.01',
+                   'List::Util' => 0,
+                   'Getopt::Long' => '2.38',
+                   'Exporter' => 0,
+                   'Class::Std' => '0.01',
+                   'base' => 0,
+                   'File::HomeDir' => '0.97',
+                   'strict' => 0,
+                   'Cwd' => 0,
+                   'Clone' => 0,
+                   'Test::Trap' => 0,
+                   'English' => 0,
+                   'File::Copy' => 0,
+                   'Data::Dumper' => 0,
+                   'warnings' => 0,
+                   'Hash::Merge' => 0,
+                   'Test::More' => 0,
+                   'Test::Exception' => 0,
+                   'File::Basename' => 0,
+                   'Readonly' => 0,
+                   'Text::CSV' => 0,
+                   'Symbol' => 0,
+                   'Config::Any' => 0
+                 },
+  'PL_FILES' => {},
+  'EXE_FILES' => [],
+  'NAME' => 'CLI::Startup',
+  'INSTALLDIRS' => 'site',
+  'VERSION_FROM' => 'lib/CLI/Startup.pm'
+)
 ;

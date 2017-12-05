@@ -10,7 +10,7 @@
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : 2
+      "version" : "2"
    },
    "name" : "CLI-Startup",
    "prereqs" : {
@@ -71,5 +71,6 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.21"
+   "version" : "0.21",
+   "x_serialization_backend" : "JSON::PP version 2.27400_02"
 }
