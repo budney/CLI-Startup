@@ -1,5 +1,7 @@
 Revision history for CLI-Startup
 
+0.22    2017-12-05
+        Cleaned up handling of collisions with default options.
 0.21    2017-06-21
         Added perltidy to author tests. CLI::Startup.pm passes test.
 0.20    2017-06-18
