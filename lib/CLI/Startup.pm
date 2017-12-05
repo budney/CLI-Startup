@@ -515,18 +515,31 @@ sub _validate_optspec
     # any default options for which this was requested.
     for my $alias ( keys %{$user_aliases} )
     {
-        my $user_optspec = $user_aliases->{$alias};
-
-        # Check if this alias collides with a default option,
-        # and the value in the user optspec is false.
-        next if $user_optspecs->{$user_optspec} || 0;
+        # Only look at options that collide with default options.
         next unless defined $default_aliases->{$alias};
 
+        # If the option specifications are identical, then we can
+        # skip this option.
+        my $user_optspec    = $user_aliases->{$alias};
         my $default_optspec = $default_aliases->{$alias};
-        my $default_name    = $default_options->{$default_optspec}{names}[0];
+
+        if ($user_optspec eq $default_optspec) {
+            delete $user_aliases->{$alias};
+            delete $user_optspecs->{$user_optspec};
+            next;
+        }
+
+        # If the option evaluates to true, it MAY be changing something,
+        # which is an error.
+        if ( $user_optspecs->{$user_optspec} || 0 ) {
+            $self->die("Multiple definitions for --$alias option");
+        }
+
+        # OK, this option is being deleted.
 
         # If the alias was not the primary name of the default option,
         # then we delete only the specific alias requested.
+        my $default_name = $default_options->{$default_optspec}{names}[0];
         if ( $alias ne $default_name )
         {
             delete $default_aliases->{$alias};
@@ -542,7 +555,7 @@ sub _validate_optspec
 
         # Special case: we use two options to cover 'verbose'
         if (    $alias eq 'verbose'
-            and $default_optspec->{$V_OPTSPEC} eq $V_FOR_VERBOSE )
+            and $default_optspecs->{$V_OPTSPEC} eq $V_FOR_VERBOSE )
         {
             delete $default_options->{ $default_aliases->{v} };
             delete $default_aliases->{v};
