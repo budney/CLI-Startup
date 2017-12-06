@@ -280,6 +280,7 @@ sub _usage_message
         # Print aliases, if any
         if ( @aliases > 0 )
         {
+
             # Add in the dashes
             @aliases = map { length() == 1 ? "-$_" : "--$_" } @aliases;
             $message .= sprintf "%${indent}s Aliases: %s\n", '',
@@ -323,6 +324,7 @@ sub _parse_optspecs
     # Step through each option
     for my $optspec ( keys %{$optspecs} )
     {
+
         # Parse the spec completely
         $parsed->{options}{$optspec}
             = $self->_parse_spec( $optspec, $optspecs->{$optspec} );
@@ -330,6 +332,7 @@ sub _parse_optspecs
         # Make a reverse-lookup by option name/alias
         for my $alias ( @{ $parsed->{options}{$optspec}{names} } )
         {
+
             # It's a fatal error to use the same alias twice
             $self->die("--$alias option defined twice")
                 if defined $parsed->{aliases}{$alias};
@@ -486,6 +489,7 @@ sub _option_aliases
 # added in.
 sub _validate_optspec
 {
+
    # no critic ( Perl::Critic::Policy::Modules::ProhibitExcessMainComplexity )
     my ( $self, $user_optspecs ) = @_;
     my $default_optspecs = $self->_get_default_optspec;
@@ -515,6 +519,7 @@ sub _validate_optspec
     # any default options for which this was requested.
     for my $alias ( keys %{$user_aliases} )
     {
+
         # Only look at options that collide with default options.
         next unless defined $default_aliases->{$alias};
 
@@ -522,7 +527,6 @@ sub _validate_optspec
         # skip this option.
         my $user_optspec    = $user_aliases->{$alias};
         my $default_optspec = $default_aliases->{$alias};
-
 
         # If the option evaluates to true, it MAY be changing something,
         # which is an error.
@@ -772,6 +776,7 @@ sub _read_config_file
     # Attempt to parse the file, if any
     if ( $rcfile && -r $rcfile )
     {
+
         # Defend against badly configured parsers. I'm looking
         # at YOU, XML::SAX!
         local $SIG{__WARN__} = sub {
@@ -821,6 +826,7 @@ sub _read_config_file
     # default section.
     for my $key ( keys %{$raw_config} )
     {
+
         # We expect a hash, with a "default" section, but if there
         # isn't one, or there are naked options, then we treat them
         # as defaults.
@@ -874,6 +880,7 @@ sub _parse_setting
     # Counters are integer-valued
     if ( $type eq 'COUNT' )
     {
+
         # All other data types we support are scalars.
         $self->die(
             "Invalid value \"$value\" for option \"$option\" in config file.")
@@ -1119,6 +1126,7 @@ sub _write_rcfile_ini
         # Serialize the two structures we know about.
         if ( ref $value eq 'ARRAY' )
         {
+
             # Just stringify. Deep structure will be silently lost.
             $csv->combine( map {"$_"} @{$value} );
             $value = $csv->string;
@@ -1129,6 +1137,7 @@ sub _write_rcfile_ini
         }
         elsif ( ref $value eq 'HASH' )
         {
+
             # Just stringify. Deep structure will be silently lost.
             $csv->combine( map {"$_=$value->{$_}"} keys %{$value} );
             $value = $csv->string;
