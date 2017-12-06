@@ -3,35 +3,35 @@ require 5.010000;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-  'VERSION_FROM' => 'lib/CLI/Startup.pm',
   'EXE_FILES' => [],
+  'VERSION_FROM' => 'lib/CLI/Startup.pm',
+  'PREREQ_PM' => {
+                   'Exporter' => 0,
+                   'Text::CSV' => 0,
+                   'English' => 0,
+                   'Pod::Text' => '3.01',
+                   'Cwd' => 0,
+                   'Hash::Merge' => 0,
+                   'Test::Exception' => 0,
+                   'File::Copy' => 0,
+                   'base' => 0,
+                   'Readonly' => 0,
+                   'File::Basename' => 0,
+                   'warnings' => 0,
+                   'Getopt::Long' => '2.38',
+                   'strict' => 0,
+                   'File::HomeDir' => '0.97',
+                   'Clone' => 0,
+                   'Data::Dumper' => 0,
+                   'Test::More' => 0,
+                   'Test::Trap' => 0,
+                   'Symbol' => 0,
+                   'List::Util' => 0,
+                   'Class::Std' => '0.01',
+                   'Config::Any' => 0
+                 },
   'PL_FILES' => {},
   'NAME' => 'CLI::Startup',
-  'INSTALLDIRS' => 'site',
-  'PREREQ_PM' => {
-                   'Class::Std' => '0.01',
-                   'Clone' => 0,
-                   'Text::CSV' => 0,
-                   'List::Util' => 0,
-                   'Symbol' => 0,
-                   'Exporter' => 0,
-                   'Pod::Text' => '3.01',
-                   'Test::More' => 0,
-                   'Cwd' => 0,
-                   'warnings' => 0,
-                   'Data::Dumper' => 0,
-                   'base' => 0,
-                   'strict' => 0,
-                   'Test::Trap' => 0,
-                   'File::HomeDir' => '0.97',
-                   'Hash::Merge' => 0,
-                   'Config::Any' => 0,
-                   'File::Basename' => 0,
-                   'Readonly' => 0,
-                   'Test::Exception' => 0,
-                   'English' => 0,
-                   'Getopt::Long' => '2.38',
-                   'File::Copy' => 0
-                 }
+  'INSTALLDIRS' => 'site'
 )
 ;
