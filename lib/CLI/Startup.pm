@@ -523,16 +523,15 @@ sub _validate_optspec
         my $user_optspec    = $user_aliases->{$alias};
         my $default_optspec = $default_aliases->{$alias};
 
-        if ($user_optspec eq $default_optspec) {
-            delete $user_aliases->{$alias};
-            delete $user_optspecs->{$user_optspec};
-            next;
-        }
 
         # If the option evaluates to true, it MAY be changing something,
         # which is an error.
-        if ( $user_optspecs->{$user_optspec} || 0 ) {
-            $self->die("Multiple definitions for --$alias option");
+        if ( $user_optspecs->{$user_optspec} || 0 )
+        {
+            if ( $user_optspec ne $default_optspec )
+            {
+                $self->die("Multiple definitions for --$alias option");
+            }
         }
 
         # OK, this option is being deleted.
