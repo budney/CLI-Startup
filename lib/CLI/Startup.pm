@@ -20,10 +20,10 @@ use Getopt::Long qw{
     :config posix_default bundling require_order no_ignore_case
 };
 
-use base 'Exporter';
+use Exporter 'import';
 our @EXPORT_OK = qw/startup/;
 
-our $VERSION = '0.22';    # Don't forget to update the manpage version, too!
+our $VERSION = '0.23';    # Don't forget to update the manpage version, too!
 
 use Readonly;
 Readonly my $V_FOR_VERBOSE => 'ALIAS OF VERBOSE';
@@ -1248,7 +1248,7 @@ CLI::Startup - Simple initialization for command-line scripts
 
 =head1 VERSION
 
-Version 0.22
+Version 0.23
 
 =head1 SYNOPSIS
 
