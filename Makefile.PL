@@ -3,35 +3,35 @@ require 5.010000;
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-  'VERSION_FROM' => 'lib/CLI/Startup.pm',
+  'INSTALLDIRS' => 'site',
+  'EXE_FILES' => [],
+  'PREREQ_PM' => {
+                   'Symbol' => 0,
+                   'Cwd' => 0,
+                   'strict' => 0,
+                   'List::Util' => 0,
+                   'Config::Any' => 0,
+                   'Hash::Merge' => 0,
+                   'File::Copy' => 0,
+                   'Text::CSV' => 0,
+                   'Exporter' => 0,
+                   'Class::Std' => '0.01',
+                   'warnings' => 0,
+                   'Readonly' => 0,
+                   'base' => 0,
+                   'File::Basename' => 0,
+                   'Test::Trap' => 0,
+                   'Pod::Text' => '3.01',
+                   'File::HomeDir' => '0.97',
+                   'English' => 0,
+                   'Clone' => 0,
+                   'Test::Exception' => 0,
+                   'Test::More' => 0,
+                   'Data::Dumper' => 0,
+                   'Getopt::Long' => '2.38'
+                 },
   'NAME' => 'CLI::Startup',
   'PL_FILES' => {},
-  'PREREQ_PM' => {
-                   'Data::Dumper' => 0,
-                   'Pod::Text' => '3.01',
-                   'File::Basename' => 0,
-                   'Text::CSV' => 0,
-                   'Symbol' => 0,
-                   'Test::Exception' => 0,
-                   'Exporter' => 0,
-                   'Config::Any' => 0,
-                   'base' => 0,
-                   'File::HomeDir' => '0.97',
-                   'Readonly' => 0,
-                   'File::Copy' => 0,
-                   'warnings' => 0,
-                   'Getopt::Long' => '2.38',
-                   'Hash::Merge' => 0,
-                   'Clone' => 0,
-                   'Test::Trap' => 0,
-                   'strict' => 0,
-                   'Cwd' => 0,
-                   'Class::Std' => '0.01',
-                   'Test::More' => 0,
-                   'List::Util' => 0,
-                   'English' => 0
-                 },
-  'EXE_FILES' => [],
-  'INSTALLDIRS' => 'site'
+  'VERSION_FROM' => 'lib/CLI/Startup.pm'
 )
 ;
