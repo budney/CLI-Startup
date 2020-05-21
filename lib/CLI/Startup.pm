@@ -18,7 +18,7 @@ use Clone qw{ clone };
 use Hash::Merge qw{ merge };
 use List::Util qw{ max reduce };
 use Getopt::Long qw{
-    :config posix_default bundling require_order no_ignore_case
+    GetOptionsFromArray :config posix_default bundling require_order no_ignore_case
 };
 
 use Exporter 'import';
@@ -712,7 +712,7 @@ sub _process_command_line
     my %options;
 
     # Parse the command line and die if anything is wrong.
-    my $opts_ok = GetOptions( \%options, keys %{$optspec} );
+    my $opts_ok = GetOptionsFromArray( \@ARGV, \%options, keys %{$optspec} );
 
     if ( $options{help} )
     {
